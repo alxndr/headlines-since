@@ -1,10 +1,11 @@
 # TODOs
 
-* [ ] use corsproxy.io (with API key) first, fallback to allorigins.win
+* [x] use corsproxy.io (with API key) first, fallback to allorigins.win
 
 * adjust story-ranking weights:
-    * [ ] reduce recency bias to 0
-    * [ ] review other weights
+    * [x] reduce recency bias to 0 (removed entirely)
+    * [x] review other weights (now: Wikipedia page views 0.5, cited sources 0.15, major outlet 0.1)
+    * [x] can we remove the hardcoded list of "impact terms" and rely on other signals to determine what stories are important?
 
 * add more sources (findings from 2026-10-02 research; "proxy" = no CORS headers, so it needs a CORS proxy)
     * [ ] Mother Jones: `https://www.motherjones.com/feed/`, 10 items/page; WordPress paging (`?paged=N`) reaches back ~1 year (paged=200 → Sept 2025); proxy
