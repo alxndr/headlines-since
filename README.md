@@ -14,58 +14,60 @@ Catch up on the biggest news stories that happened since a date you choose. Afte
 - Google News RSS
 - BBC News RSS
 
-Fetched client-side through CORS proxies. The CORS proxy API key is injected at build time via a generated config file (`src/JS/config.js`), not committed to the repo.
+Fetched client-side through CORS proxies. The CORS proxy API key is injected at build time via a generated config file (`src/config.js`), not committed to the repo.
 
 ## Configuration
 
 For local development, copy the example config:
 ```bash
-cp src/JS/config.example.js src/JS/config.js
+cp src/config.example.js src/config.js
 ```
 
-Edit `src/JS/config.js` with your CORS proxy API key if needed. For CI deployment, set `CORS_PROXY_KEY` as a GitHub repository secret.
+Edit `src/config.js` with your CORS proxy API key if needed. For CI deployment, set `CORS_PROXY_KEY` as a GitHub repository secret.
 
 ## Development
 
-Prerequisites: [Elm](https://elm-lang.org/) 0.19.1.
+### Quick start with Vite
 
-With [mise](https://mise.jdx.dev/), the correct version will be used automatically (pinned in `.tool-versions`).
-
-### Quick start
+[Vite](https://vitejs.dev/) with [vite-plugin-elm](https://github.com/hmsk/vite-plugin-elm) provides hot module reloading for Elm.
 
 ```bash
-# Install dependencies / use correct tool versions
-mise install
+# Install dependencies
+npm install
 
-# Build Elm
-mise exec -- elm make src/Main.elm --output build/js/elm.js
+# Copy config if needed
+cp src/config.example.js src/config.js
 
-# Prepare build directory and copy assets
-mkdir -p build/js
-cp src/index.html build/
-cp src/styles.css build/
-cp -r src/JS/* build/js/
-
-# Serve locally
-python3 -m http.server 8000 --directory build
+# Start dev server
+npm run dev
 ```
 
-Visit http://localhost:8000.
+Visit http://localhost:5173.
 
-### Alternative (without mise)
+### Build for production
 
 ```bash
-elm make src/Main.elm --output build/js/elm.js
-mkdir -p build/js
-cp src/index.html build/
-cp src/styles.css build/
-cp -r src/JS/* build/js/
-python3 -m http.server 8000 --directory build
+npm run build
+```
+
+The built site will be in the `build/` directory. Preview it locally with:
+
+```bash
+npm run preview
+```
+
+### Using mise for tool versions
+
+With [mise](https://mise.jdx.dev/), the correct Elm version will be used automatically (pinned in `.tool-versions`).
+
+```bash
+mise install
+mise exec -- npm run dev
 ```
 
 ## Deployment
 
-GitHub Actions workflow (`.github/workflows/deploy.yml`) builds the Elm app and deploys to GitHub Pages on push to `main`. The build step generates `src/JS/config.js` from the `CORS_PROXY_KEY` secret. Enable Pages in repo settings (source: GitHub Actions).
+GitHub Actions workflow (`.github/workflows/deploy.yml`) builds the app with Vite and deploys to GitHub Pages on push to `main`. The build step generates `src/config.js` from the `CORS_PROXY_KEY` secret. Enable Pages in repo settings (source: GitHub Actions).
 
 ## Algorithm
 
