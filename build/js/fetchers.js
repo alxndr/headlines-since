@@ -2,7 +2,8 @@ import { parseRSSDate, normalizeTitle } from './utils.js';
 
 const PROXIES = [
   (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-  (u) => `https://r.jina.ai/http://${u.replace(/^https?:\/\//, '')}`,
+  (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}&callback=?&raw=1`,
+  (u) => `https://r.jina.ai/${u}`,
   (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
 ];
 
@@ -20,7 +21,9 @@ export async function fetchWithProxy(url) {
     try {
       const res = await fetch(mk(url), { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.text();
+      const text = await res.text();
+      if (!text || text.trim().length === 0) throw new Error('Empty response');
+      return text;
     } catch (e) {
       lastErr = e;
     }
