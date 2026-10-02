@@ -29,25 +29,39 @@ Edit `src/JS/config.js` with your CORS proxy API key if needed. For CI deploymen
 
 Prerequisites: [Elm](https://elm-lang.org/) 0.19.1.
 
-Build the Elm app:
-```bash
-elm make src/Main.elm --output build/js/elm.js
-```
+With [mise](https://mise.jdx.dev/), the correct version will be used automatically (pinned in `.tool-versions`).
 
-Copy static assets:
+### Quick start
+
 ```bash
+# Install dependencies / use correct tool versions
+mise install
+
+# Build Elm
+mise exec -- elm make src/Main.elm --output build/js/elm.js
+
+# Prepare build directory and copy assets
 mkdir -p build/js
-cp src/index.html build/index.html
-cp src/styles.css build/styles.css
+cp src/index.html build/
+cp src/styles.css build/
 cp -r src/JS/* build/js/
-```
 
-Then serve `build/` locally:
-```bash
+# Serve locally
 python3 -m http.server 8000 --directory build
 ```
 
 Visit http://localhost:8000.
+
+### Alternative (without mise)
+
+```bash
+elm make src/Main.elm --output build/js/elm.js
+mkdir -p build/js
+cp src/index.html build/
+cp src/styles.css build/
+cp -r src/JS/* build/js/
+python3 -m http.server 8000 --directory build
+```
 
 ## Deployment
 
