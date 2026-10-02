@@ -174,6 +174,7 @@ If using custom Racket build instead of Pollen, `.pm/.pp` are replaced by Racket
 - [ ] Tweak weights based on real-world testing
 - [ ] Cache results in `localStorage` for identical queries
 - [ ] Add "how we ranked" explainer (minimal text)
+- [ ] Update GitHub Actions to use Node.js 24-compatible action versions (address Node.js 20 deprecation warnings)
 
 ---
 
