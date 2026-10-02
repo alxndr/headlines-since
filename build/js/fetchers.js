@@ -2,17 +2,12 @@ import { parseRSSDate, normalizeTitle } from './utils.js';
 
 const PROXIES = [
   (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-  (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}&callback=?&raw=1`,
-  (u) => `https://r.jina.ai/${u}`,
   (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
 ];
 
 const RSS_SOURCES = [
   'https://news.google.com/rss',
-  'https://apnews.com/rss',
-  'https://www.reuters.com/rss',
   'https://feeds.bbci.co.uk/news/rss.xml',
-  'https://www.theguardian.com/rss',
 ];
 
 export async function fetchWithProxy(url) {
