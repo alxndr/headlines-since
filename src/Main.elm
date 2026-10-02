@@ -3,10 +3,12 @@ module Main exposing (main)
 import Browser
 import Date exposing (Date)
 import Dict
-import Feeds exposing (FeedResult)
-import Html exposing (Html, article, button, details, div, h1, h3, input, label, li, p, section, summary, text, ul)
+import Feeds exposing (FeedResult, OutletResult)
+import Html exposing (Html, article, button, details, div, h1, h2, h3, input, label, li, p, section, summary, text, ul)
 import Html.Attributes as Attr exposing (attribute, class, disabled, for, href, id, name, rel, required, target, type_, value)
 import Html.Events exposing (onInput, onSubmit)
+import Html.Lazy
+import OutletMatch
 import PageViews exposing (AverageDailyViews)
 import Rank exposing (RankedStory)
 import Story exposing (Story)
@@ -54,17 +56,56 @@ type alias ReadyModel =
     , startDateInput : String
     , countInput : String
     , request : Request
+
+    -- Incremented on each search, so responses to an earlier search that
+    -- arrive late are ignored.
+    , searchCount : Int
     }
 
 
 type Request
     = NotRequested
-    | Loading
-    | Failed String
-    | Loaded
+    | Invalid String
+    | Searching Search
+
+
+{-| The Wikipedia ranking and each outlet load independently: outlets'
+feeds are slow (many pages through the CORS proxy), so the ranked stories
+are shown as soon as they're ready, and each outlet fills in when it
+arrives.
+-}
+type alias Search =
+    { number : Int
+    , query : Query
+    , ranking : Ranking
+    , outlets : List OutletState
+    }
+
+
+type Ranking
+    = RankingPending
+    | RankingFailed String
+    | Ranked
         { stories : List RankedStory
-        , warnings : List String
+        , eventsInRange : OutletMatch.EventIndex
+        , pageViewsProblem : Maybe String
         }
+
+
+type OutletState
+    = OutletLoading String
+    | OutletLoaded OutletResult
+
+
+{-| An outlet's articles in the date range that weren't attached to a
+ranked story, newest first. `oldestLoaded` is set when paging stopped
+before the start date, so older articles are missing.
+-}
+type alias OutletSection =
+    { outletName : String
+    , articles : List Story
+    , oldestLoaded : Maybe Date
+    }
 
 
 type alias Query =
@@ -115,7 +156,8 @@ type Msg
     | StartDateChanged String
     | CountChanged String
     | FormSubmitted
-    | FeedsFetched Query (List FeedResult) (Result String AverageDailyViews)
+    | WikipediaFetched Int FeedResult (Result String AverageDailyViews)
+    | OutletFetched Int OutletResult
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -133,6 +175,7 @@ update msg model =
                 , startDateInput = Date.toIsoString (Date.add Date.Days -defaultDaysBack today)
                 , countInput = String.fromInt defaultCount
                 , request = NotRequested
+                , searchCount = 0
                 }
             , Cmd.none
             )
@@ -160,29 +203,87 @@ updateReady msg model =
         FormSubmitted ->
             case validateQuery model of
                 Err problem ->
-                    ( { model | request = Failed problem }, Cmd.none )
+                    ( { model | request = Invalid problem }, Cmd.none )
 
                 Ok query ->
-                    ( { model | request = Loading }
-                    , Feeds.fetchAll
-                        { corsProxyKey = model.corsProxyKey
-                        , startDate = query.startDate
-                        , today = model.today
-                        }
-                        |> Task.andThen
-                            (\feedResults ->
-                                PageViews.fetch
-                                    { startDate = query.startDate, today = model.today }
-                                    (topicArticlesByEventCount feedResults)
-                                    |> Task.map Ok
-                                    |> Task.onError (Err >> Task.succeed)
-                                    |> Task.map (FeedsFetched query feedResults)
-                            )
-                        |> Task.perform identity
+                    let
+                        searchNumber =
+                            model.searchCount + 1
+                    in
+                    ( { model
+                        | searchCount = searchNumber
+                        , request =
+                            Searching
+                                { number = searchNumber
+                                , query = query
+                                , ranking = RankingPending
+                                , outlets = List.map (.name >> OutletLoading) Feeds.outlets
+                                }
+                      }
+                      -- Separate commands run in parallel.
+                    , Cmd.batch
+                        (fetchAndRank model.today searchNumber query
+                            :: List.map
+                                (Feeds.fetchOutlet model.corsProxyKey query.startDate
+                                    >> Task.perform (OutletFetched searchNumber)
+                                )
+                                Feeds.outlets
+                        )
                     )
 
-        FeedsFetched query feedResults pageViews ->
-            ( { model | request = rankFeedResults model.zone query feedResults pageViews }, Cmd.none )
+        WikipediaFetched searchNumber wikipedia pageViews ->
+            ( updateSearch searchNumber (\search -> { search | ranking = rank model.zone model.today search.query wikipedia pageViews }) model
+            , Cmd.none
+            )
+
+        OutletFetched searchNumber outletResult ->
+            let
+                replaceLoading outletState =
+                    case outletState of
+                        OutletLoading name ->
+                            if name == outletResult.outletName then
+                                OutletLoaded outletResult
+
+                            else
+                                outletState
+
+                        OutletLoaded _ ->
+                            outletState
+            in
+            ( updateSearch searchNumber (\search -> { search | outlets = List.map replaceLoading search.outlets }) model
+            , Cmd.none
+            )
+
+
+{-| Applies the change only if the search is still the current one.
+-}
+updateSearch : Int -> (Search -> Search) -> ReadyModel -> ReadyModel
+updateSearch searchNumber change model =
+    case model.request of
+        Searching search ->
+            if search.number == searchNumber then
+                { model | request = Searching (change search) }
+
+            else
+                model
+
+        _ ->
+            model
+
+
+fetchAndRank : Date -> Int -> Query -> Cmd Msg
+fetchAndRank today searchNumber query =
+    Feeds.fetchWikipedia query.startDate today
+        |> Task.andThen
+            (\wikipedia ->
+                PageViews.fetch
+                    { startDate = query.startDate, today = today }
+                    (topicArticlesByEventCount (Result.withDefault [] wikipedia.stories))
+                    |> Task.map Ok
+                    |> Task.onError (Err >> Task.succeed)
+                    |> Task.map (WikipediaFetched searchNumber wikipedia)
+            )
+        |> Task.perform identity
 
 
 validateQuery : ReadyModel -> Result String Query
@@ -208,10 +309,9 @@ validateQuery model =
 {-| The articles to look up page views for, most frequently cited first,
 since for old date ranges only the first few are looked up.
 -}
-topicArticlesByEventCount : List FeedResult -> List String
-topicArticlesByEventCount feedResults =
-    feedResults
-        |> List.concatMap (.stories >> Result.withDefault [])
+topicArticlesByEventCount : List Story -> List String
+topicArticlesByEventCount wikipediaEvents =
+    wikipediaEvents
         |> List.concatMap .topicArticles
         |> List.foldl (\article -> Dict.update article (Maybe.withDefault 0 >> (+) 1 >> Just)) Dict.empty
         |> Dict.toList
@@ -219,60 +319,125 @@ topicArticlesByEventCount feedResults =
         |> List.map Tuple.first
 
 
-rankFeedResults : Time.Zone -> Query -> List FeedResult -> Result String AverageDailyViews -> Request
-rankFeedResults zone query feedResults pageViews =
-    let
-        loadedStories =
-            List.concatMap (.stories >> Result.withDefault []) feedResults
+{-| Compares calendar dates in the user's time zone, so "since Monday"
+includes everything published on their Monday. Some feeds include items
+dated in the future (e.g. event announcements), so those are excluded.
+-}
+isInRange : Time.Zone -> Date -> Query -> Story -> Bool
+isInRange zone today query story =
+    Date.isBetween query.startDate today (Story.publishedDate zone story)
 
-        failedFeeds =
-            List.filterMap
-                (\feedResult ->
-                    case feedResult.stories of
-                        Ok _ ->
-                            Nothing
 
-                        Err problem ->
-                            Just ( feedResult.feedName, problem )
-                )
-                feedResults
+rank : Time.Zone -> Date -> Query -> Feeds.FeedResult -> Result String AverageDailyViews -> Ranking
+rank zone today query wikipedia pageViews =
+    case wikipedia.stories of
+        Err problem ->
+            RankingFailed ("Couldn't load Wikipedia's Current Events (" ++ problem ++ "), which the ranking is based on.")
 
-        -- Compare calendar dates in the user's time zone, so "since
-        -- Monday" includes everything published on their Monday.
-        isOnOrAfterStartDate story =
-            Date.compare (Story.publishedDate zone story) query.startDate /= LT
-    in
-    if List.length failedFeeds == List.length feedResults then
-        Failed ("Couldn't load any news feeds. " ++ describeFailedFeeds failedFeeds)
-
-    else
-        Loaded
-            { stories =
-                loadedStories
-                    |> List.filter isOnOrAfterStartDate
-                    |> Rank.topStories zone (Result.withDefault Dict.empty pageViews) query.count
-            , warnings =
-                List.filterMap identity
-                    [ if List.isEmpty failedFeeds then
-                        Nothing
-
-                      else
-                        Just ("Some feeds couldn't be loaded, so results may be incomplete. " ++ describeFailedFeeds failedFeeds)
-                    , case pageViews of
+        Ok wikipediaEvents ->
+            let
+                eventsInRange =
+                    List.filter (isInRange zone today query) wikipediaEvents
+            in
+            Ranked
+                { stories = Rank.topStories zone (Result.withDefault Dict.empty pageViews) query.count eventsInRange
+                , eventsInRange = OutletMatch.eventIndex eventsInRange
+                , pageViewsProblem =
+                    case pageViews of
                         Ok _ ->
                             Nothing
 
                         Err problem ->
                             Just ("Couldn't load Wikipedia page views (" ++ problem ++ "), so stories are ranked without them.")
-                    ]
-            }
+                }
 
 
-describeFailedFeeds : List ( String, String ) -> String
-describeFailedFeeds failedFeeds =
-    failedFeeds
-        |> List.map (\( feedName, problem ) -> feedName ++ ": " ++ problem)
-        |> String.join "; "
+{-| What the results show so far: the ranked stories with any matching
+outlet articles attached, and each loaded outlet's remaining articles.
+-}
+searchResults : Time.Zone -> Date -> Search -> { stories : List RankedStory, outletSections : List OutletSection }
+searchResults zone today search =
+    case search.ranking of
+        Ranked ranked ->
+            List.foldl
+                (\outletState results ->
+                    case outletState of
+                        OutletLoaded outlet ->
+                            let
+                                attached =
+                                    outlet.stories
+                                        |> Result.withDefault []
+                                        |> List.filter (isInRange zone today search.query)
+                                        |> OutletMatch.attachToRanked zone ranked.eventsInRange results.stories
+                            in
+                            { stories = attached.ranked
+                            , outletSections = results.outletSections ++ [ toOutletSection zone outlet attached.unmatched ]
+                            }
+
+                        OutletLoading _ ->
+                            results
+                )
+                { stories = ranked.stories, outletSections = [] }
+                search.outlets
+
+        _ ->
+            { stories = [], outletSections = [] }
+
+
+toOutletSection : Time.Zone -> OutletResult -> List Story -> OutletSection
+toOutletSection zone outlet unmatchedArticles =
+    let
+        newestFirst =
+            List.sortBy (Story.publishedDate zone >> Date.toRataDie >> negate) unmatchedArticles
+    in
+    { outletName = outlet.outletName
+    , articles = newestFirst
+    , oldestLoaded =
+        if outlet.complete then
+            Nothing
+
+        else
+            outlet.stories
+                |> Result.withDefault []
+                |> List.map (Story.publishedDate zone)
+                |> List.sortBy Date.toRataDie
+                |> List.head
+    }
+
+
+searchWarnings : Search -> List String
+searchWarnings search =
+    let
+        failedOutlets =
+            List.filterMap
+                (\outletState ->
+                    case outletState of
+                        OutletLoaded { outletName, stories } ->
+                            case stories of
+                                Err problem ->
+                                    Just (outletName ++ ": " ++ problem)
+
+                                Ok _ ->
+                                    Nothing
+
+                        OutletLoading _ ->
+                            Nothing
+                )
+                search.outlets
+    in
+    List.filterMap identity
+        [ case search.ranking of
+            Ranked { pageViewsProblem } ->
+                pageViewsProblem
+
+            _ ->
+                Nothing
+        , if List.isEmpty failedOutlets then
+            Nothing
+
+          else
+            Just ("Some outlets couldn't be loaded. " ++ String.join "; " failedOutlets)
+        ]
 
 
 
@@ -292,7 +457,7 @@ view model =
                         viewReady readyModel
                )
             ++ [ section []
-                    [ p [] [ text "Biggest individual stories ranked by significance (no forced topic diversification)." ] ]
+                    [ p [] [ text "Stories come from Wikipedia's Current Events portal, ranked by how many people read about each one on Wikipedia." ] ]
                ]
         )
 
@@ -306,15 +471,105 @@ viewReady model =
     -- already exists.
     , div [ id "hs-status", attribute "aria-live" "polite" ] [ text (statusText model.request) ]
     , viewProblems model.request
-    , div [ id "hs-results" ]
-        (case model.request of
-            Loaded { stories } ->
-                List.map (viewStory model.zone) stories
+    , case model.request of
+        Searching search ->
+            -- Matching outlet articles to stories takes a moment for long
+            -- date ranges, so it's skipped when only the form changed.
+            Html.Lazy.lazy3 viewSearchResults model.zone model.today search
+
+        _ ->
+            text ""
+    ]
+
+
+viewSearchResults : Time.Zone -> Date -> Search -> Html Msg
+viewSearchResults zone today search =
+    let
+        results =
+            searchResults zone today search
+
+        stillLoading =
+            List.filterMap
+                (\outletState ->
+                    case outletState of
+                        OutletLoading name ->
+                            Just name
+
+                        OutletLoaded _ ->
+                            Nothing
+                )
+                search.outlets
+    in
+    div []
+        [ div [ id "hs-results" ] (List.map (viewStory zone) results.stories)
+        , case search.ranking of
+            Ranked _ ->
+                viewOutletSections zone results.outletSections stillLoading
 
             _ ->
-                []
-        )
-    ]
+                text ""
+        ]
+
+
+{-| Outlets' articles that weren't matched to a ranked story. They can't be
+ranked against Wikipedia events, so each outlet's are listed newest first.
+-}
+viewOutletSections : Time.Zone -> List OutletSection -> List String -> Html Msg
+viewOutletSections zone outletSections stillLoading =
+    let
+        sectionsWithArticles =
+            List.filter (.articles >> List.isEmpty >> not) outletSections
+    in
+    if List.isEmpty sectionsWithArticles && List.isEmpty stillLoading then
+        text ""
+
+    else
+        section [ id "hs-outlets" ]
+            (h2 [] [ text "More from other outlets" ]
+                :: p [ class "outlets-note" ] [ text "Not ranked: these couldn't be matched to the stories above." ]
+                :: List.map (viewOutletSection zone) sectionsWithArticles
+                ++ (if List.isEmpty stillLoading then
+                        []
+
+                    else
+                        [ p [ class "outlets-note" ] [ text ("Loading " ++ String.join ", " stillLoading ++ "...") ] ]
+                   )
+            )
+
+
+viewOutletSection : Time.Zone -> OutletSection -> Html Msg
+viewOutletSection zone outletSection =
+    details [ class "outlet" ]
+        [ summary []
+            [ text (outletSection.outletName ++ " (" ++ String.fromInt (List.length outletSection.articles) ++ ")") ]
+        , case outletSection.oldestLoaded of
+            Just oldestDate ->
+                p [ class "outlets-note" ]
+                    [ text ("Only articles back to " ++ Date.format "EEE d MMM y" oldestDate ++ " could be loaded.") ]
+
+            Nothing ->
+                text ""
+        , ul []
+            (List.map
+                (\article ->
+                    li []
+                        [ text (formatPublishedAt zone article.publishedAt ++ ": ")
+                        , Html.a [ href article.url, target "_blank", rel "noopener noreferrer" ] [ text article.title ]
+                        ]
+                )
+                outletSection.articles
+            )
+        ]
+
+
+isRanking : Request -> Bool
+isRanking request =
+    case request of
+        Searching { ranking } ->
+            ranking == RankingPending
+
+        _ ->
+            False
 
 
 viewForm : ReadyModel -> Html Msg
@@ -344,44 +599,55 @@ viewForm model =
             , onInput CountChanged
             ]
             []
-        , button [ type_ "submit", disabled (model.request == Loading) ] [ text "Find headlines" ]
+        , button [ type_ "submit", disabled (isRanking model.request) ] [ text "Find headlines" ]
         ]
 
 
 statusText : Request -> String
 statusText request =
     case request of
-        NotRequested ->
+        Searching search ->
+            case search.ranking of
+                RankingPending ->
+                    "Fetching headlines..."
+
+                RankingFailed _ ->
+                    ""
+
+                Ranked { stories } ->
+                    if List.isEmpty stories then
+                        "No stories found for this range."
+
+                    else
+                        "Found " ++ String.fromInt (List.length stories) ++ " biggest stories"
+
+        _ ->
             ""
-
-        Loading ->
-            "Fetching headlines..."
-
-        Failed _ ->
-            ""
-
-        Loaded { stories } ->
-            if List.isEmpty stories then
-                "No stories found for this range."
-
-            else
-                "Found " ++ String.fromInt (List.length stories) ++ " biggest stories"
 
 
 viewProblems : Request -> Html Msg
 viewProblems request =
     case request of
-        Failed problem ->
+        Invalid problem ->
             div [ class "error" ] [ text problem ]
 
-        Loaded { warnings } ->
-            if List.isEmpty warnings then
-                text ""
+        Searching search ->
+            div []
+                [ case search.ranking of
+                    RankingFailed problem ->
+                        div [ class "error" ] [ text problem ]
 
-            else
-                div [ class "warning" ] (List.map (\warning -> p [] [ text warning ]) warnings)
+                    _ ->
+                        text ""
+                , case searchWarnings search of
+                    [] ->
+                        text ""
 
-        _ ->
+                    warnings ->
+                        div [ class "warning" ] (List.map (\warning -> p [] [ text warning ]) warnings)
+                ]
+
+        NotRequested ->
             text ""
 
 
@@ -438,6 +704,7 @@ viewRelatedReports zone relatedReports =
                             li []
                                 [ text (formatPublishedAt zone report.publishedAt ++ ": ")
                                 , Html.a [ href report.url, target "_blank", rel "noopener noreferrer" ] [ text report.title ]
+                                , text (" (" ++ report.sourceName ++ ")")
                                 ]
                         )
                         relatedReports

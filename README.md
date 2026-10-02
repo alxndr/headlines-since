@@ -15,7 +15,11 @@ The code in this project was bootstrapped by Cohere's [`north-mini-code-1.0`](ht
 
 - **[Wikipedia's Current Events portal](https://en.wikipedia.org/wiki/Portal:Current_events)**: an editor-curated list of each day's notable events, with citations. One page per day, so it covers any start date. Fetched directly from the Wikipedia API (no proxy needed).
 
-The app can also read RSS feeds, fetched through CORS proxies ([corsproxy.io](https://corsproxy.io/) if an API key is configured, falling back to [allorigins.win](https://allorigins.win/)), but no RSS feeds are currently configured.
+- **Outlets' RSS feeds**: [Mother Jones](https://www.motherjones.com/), [The Nation](https://www.thenation.com/) and [Common Dreams](https://www.commondreams.org/), fetched through CORS proxies ([corsproxy.io](https://corsproxy.io/) if an API key is configured, falling back to [allorigins.win](https://allorigins.win/)). The app pages back through each feed to the start date, up to 10 pages per outlet.
+
+Outlets' articles can't be ranked against Wikipedia events (they have no Wikipedia topic, so no page views). An article is attached to a ranked story as a related report when it clearly reports the same event; the rest are listed per outlet below the ranked stories, newest first. See [Matching outlets' articles](#matching-outlets-articles).
+
+The ranked stories appear as soon as Wikipedia has loaded; each outlet's section fills in when that outlet's feed has loaded.
 
 Removed sources:
 - **Google News RSS**: Google answers requests from CORS proxies with a "Sorry..." block page (HTTP 503).
@@ -95,12 +99,13 @@ GitHub Actions workflow (`.github/workflows/deploy.yml`) builds the app with Vit
 | Module | Purpose |
 |---|---|
 | `src/Main.elm` | UI: the form, request state, results |
-| `src/Feeds.elm` | Fetches every source (RSS via the CORS proxies; Wikipedia directly) |
+| `src/Feeds.elm` | Fetches Wikipedia's Current Events, and pages through outlets' RSS feeds via the CORS proxies |
 | `src/Rss.elm` | Parses RSS XML into stories |
 | `src/WikipediaCurrentEvents.elm` | Parses Wikipedia Current Events day pages into stories |
 | `src/Rfc822.elm` | Parses RSS `<pubDate>` dates |
 | `src/PageViews.elm` | Fetches Wikipedia page views for story topics |
 | `src/SameEvent.elm` | Recognises different reports of the same event |
+| `src/OutletMatch.elm` | Matches outlets' articles to Wikipedia events |
 | `src/Rank.elm` | Scores and picks the top stories |
 | `src/Story.elm` | The `Story` type |
 
@@ -124,3 +129,9 @@ Stories are then picked one at a time, highest score first:
 - **Repeated topics, penalised**: each further story from a topic that's already been picked (e.g. a third story filed under "2026 Iran war") scores 15% less than the one before, so other news can compete.
 
 Duplicate URLs are only considered once.
+
+### Matching outlets' articles
+
+An outlet's article (title plus its RSS summary) is compared with each Wikipedia event published within 3 days of it, as sets of words weighted by how rare each word is among the events (cosine similarity of TF-IDF-style weights). It's attached to the event if the similarity is at least 0.25.
+
+This is deliberately strict. Tested on 142 real headlines from the BBC, The Nation, Common Dreams and Mother Jones, hand-checked against the Wikipedia events: only 12 had a matching event at all (these outlets mostly publish opinion and investigations, which Wikipedia doesn't list as events). At 0.25 the matcher found 2 of the 12 and made no wrong matches; looser settings found more but quickly made wrong ones, such as matching "Revolution or No Revolution" to an unrelated arrest in Myanmar.

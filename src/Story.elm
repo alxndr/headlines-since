@@ -22,6 +22,10 @@ items have no topics or section, and count as one source:
   - `linkedArticles`: the Wikipedia articles the event's text links to,
     used to recognise reports of the same event
 
+`summary` is an RSS item's description (often the article's first
+paragraph), used to match outlets' articles to Wikipedia events. It's empty
+for Wikipedia events, whose title is already a summary.
+
 -}
 type alias Story =
     { title : String
@@ -34,6 +38,7 @@ type alias Story =
     , section : Maybe String
     , sourceCount : Int
     , linkedArticles : List String
+    , summary : String
     }
 
 

@@ -20,6 +20,7 @@ event dayOfMonth topicArticles linkedArticles =
     , section = Nothing
     , sourceCount = 1
     , linkedArticles = topicArticles ++ linkedArticles
+    , summary = ""
     }
 
 

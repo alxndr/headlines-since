@@ -3,6 +3,7 @@ module Rss exposing (parse)
 {-| Turn an RSS 2.0 document into a list of stories.
 -}
 
+import Hex
 import Regex
 import Rfc822
 import Story exposing (Story)
@@ -21,11 +22,12 @@ parse xml =
 
 itemDecoder : XD.Decoder Story
 itemDecoder =
-    XD.map4 toStory
+    XD.map5 toStory
         (XD.path [ "title" ] (XD.single XD.string) |> XD.withDefault "")
         (XD.path [ "link" ] (XD.single XD.string) |> XD.withDefault "")
         (XD.path [ "pubDate" ] (XD.single pubDateDecoder))
         (XD.maybe (XD.path [ "source" ] (XD.single sourceDecoder)))
+        (XD.path [ "description" ] (XD.single XD.string) |> XD.withDefault "")
 
 
 {-| Google News items name the original outlet in an element like
@@ -55,8 +57,8 @@ pubDateDecoder =
             )
 
 
-toStory : String -> String -> Time.Posix -> Maybe { name : String, url : Maybe String } -> Story
-toStory rawTitle rawLink publishedAt source =
+toStory : String -> String -> Time.Posix -> Maybe { name : String, url : Maybe String } -> String -> Story
+toStory rawTitle rawLink publishedAt source rawDescription =
     let
         link =
             String.trim rawLink
@@ -80,7 +82,7 @@ toStory rawTitle rawLink publishedAt source =
                 Nothing ->
                     sourceHost
     in
-    { title = stripTags rawTitle |> String.trim
+    { title = toPlainText rawTitle
     , url = link
     , sourceName = sourceName
     , sourceHost = sourceHost
@@ -90,6 +92,7 @@ toStory rawTitle rawLink publishedAt source =
     , section = Nothing
     , sourceCount = 1
     , linkedArticles = []
+    , summary = toPlainText rawDescription
     }
 
 
@@ -110,9 +113,67 @@ hostOf urlString =
             ""
 
 
-stripTags : String -> String
-stripTags =
-    Regex.replace htmlTag (\_ -> "")
+{-| Titles and descriptions can contain HTML, whose tags and character
+references (like `&#8217;` for ’) survive XML decoding.
+-}
+toPlainText : String -> String
+toPlainText html =
+    html
+        |> Regex.replace htmlTag (\_ -> " ")
+        |> Regex.replace characterReference decodeCharacterReference
+        |> Regex.replace whitespaceRun (\_ -> " ")
+        |> String.trim
+
+
+{-| `&#8217;`, `&#x2019;`, and a few common named references.
+-}
+decodeCharacterReference : Regex.Match -> String
+decodeCharacterReference match =
+    let
+        name =
+            match.match |> String.dropLeft 1 |> String.dropRight 1
+    in
+    case name of
+        "amp" ->
+            "&"
+
+        "lt" ->
+            "<"
+
+        "gt" ->
+            ">"
+
+        "quot" ->
+            "\""
+
+        "apos" ->
+            "'"
+
+        "nbsp" ->
+            " "
+
+        _ ->
+            (if String.startsWith "#x" name || String.startsWith "#X" name then
+                Hex.fromString (String.toLower (String.dropLeft 2 name)) |> Result.toMaybe
+
+             else if String.startsWith "#" name then
+                String.toInt (String.dropLeft 1 name)
+
+             else
+                Nothing
+            )
+                |> Maybe.map (Char.fromCode >> String.fromChar)
+                |> Maybe.withDefault match.match
+
+
+characterReference : Regex.Regex
+characterReference =
+    Regex.fromString "&#?[A-Za-z0-9]+;" |> Maybe.withDefault Regex.never
+
+
+whitespaceRun : Regex.Regex
+whitespaceRun =
+    Regex.fromString "\\s+" |> Maybe.withDefault Regex.never
 
 
 htmlTag : Regex.Regex

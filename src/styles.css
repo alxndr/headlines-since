@@ -73,3 +73,22 @@ button {
   cursor: pointer;
   color: #555;
 }
+
+#hs-outlets h2 {
+  margin-bottom: 0.25rem;
+}
+
+.outlets-note {
+  font-size: 0.9rem;
+  color: #555;
+  margin: 0.25rem 0;
+}
+
+.outlet {
+  margin: 0.5rem 0;
+}
+
+.outlet summary {
+  cursor: pointer;
+  font-weight: 600;
+}

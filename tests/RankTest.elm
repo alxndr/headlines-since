@@ -21,6 +21,7 @@ baseStory =
     , section = Nothing
     , sourceCount = 1
     , linkedArticles = []
+    , summary = ""
     }
 
 

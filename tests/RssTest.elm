@@ -55,6 +55,7 @@ suite =
                               , section = Nothing
                               , sourceCount = 1
                               , linkedArticles = []
+                              , summary = "Christa Pike unconscious NBC News"
                               }
                             ]
                         )
@@ -73,6 +74,7 @@ suite =
                               , section = Nothing
                               , sourceCount = 1
                               , linkedArticles = []
+                              , summary = "Counter terror police say the further charge comes after a \"hugely intensive and complex investigation\"."
                               }
                             ]
                         )
@@ -81,6 +83,11 @@ suite =
                 Rss.parse "<rss><channel><item><title>&lt;b&gt;Bold&lt;/b&gt; news </title><link>https://example.com/a</link><pubDate>Fri, 02 Oct 2026 19:40:05 GMT</pubDate></item></channel></rss>"
                     |> Result.map (List.map .title)
                     |> Expect.equal (Ok [ "Bold news" ])
+        , test "HTML and character references in descriptions become plain text" <|
+            \_ ->
+                Rss.parse "<rss><channel><item><title>T</title><link>https://example.com/a</link><pubDate>Fri, 02 Oct 2026 19:40:05 GMT</pubDate><description><![CDATA[<p>Trump&#8217;s rule &amp; <b>guns</b>&nbsp;&#x2014; more</p>]]></description></item></channel></rss>"
+                    |> Result.map (List.map .summary)
+                    |> Expect.equal (Ok [ "Trump’s rule & guns — more" ])
         , test "a document that isn't XML is an error" <|
             \_ ->
                 Rss.parse "<html><body>Rate limited"

@@ -1,11 +1,13 @@
-module Feeds exposing (FeedResult, fetchAll)
+module Feeds exposing (FeedResult, Outlet, OutletResult, fetchOutlet, fetchWikipedia, outlets)
 
 {-| Download and parse every news source:
 
-  - RSS feeds, via CORS proxies (the feeds don't allow direct cross-origin
-    requests from a browser). These only cover the last day or two.
   - Wikipedia's Current Events portal, which the browser can fetch directly,
-    and which covers any date range.
+    and which covers any date range. Its events are what gets ranked.
+  - News outlets' RSS feeds, via CORS proxies (the feeds don't allow direct
+    cross-origin requests from a browser). Their articles can't be ranked
+    against Wikipedia events, so they're shown separately, or attached to
+    the Wikipedia event they report when that can be told reliably.
 
 -}
 
@@ -16,19 +18,14 @@ import List.Extra
 import Rss
 import Story exposing (Story)
 import Task exposing (Task)
+import Time
 import Url
 import Url.Builder
 import WikipediaCurrentEvents
 
 
-type alias Feed =
-    { name : String
-    , url : String
-    }
-
-
-{-| Each feed succeeds or fails on its own, so one broken feed doesn't hide
-the stories from the others.
+{-| Each source succeeds or fails on its own, so one broken source doesn't
+hide the stories from the others.
 -}
 type alias FeedResult =
     { feedName : String
@@ -36,40 +33,106 @@ type alias FeedResult =
     }
 
 
-{-| Currently empty; the RSS and CORS proxy code is kept for adding outlets.
+{-| `complete` is False when paging stopped before reaching the start date
+(the page limit was hit, or a later page failed to load), so older articles
+are missing.
+-}
+type alias OutletResult =
+    { outletName : String
+    , stories : Result String (List Story)
+    , complete : Bool
+    }
+
+
+{-| An outlet's RSS feed, which can be paged back through (page 1 is the
+newest).
 
 Removed sources:
 
   - Google News (<https://news.google.com/rss>): Google answers requests from
     CORS proxies with a "Sorry..." block page (HTTP 503).
-  - BBC News (<https://feeds.bbci.co.uk/news/rss.xml>): its headlines can't
-    be matched to Wikipedia events reliably, so they couldn't be ranked or
-    merged with them, and its significant stories were already on Wikipedia.
+  - BBC News (<https://feeds.bbci.co.uk/news/rss.xml>): no paging (only the
+    last day or two), and its significant stories were already on Wikipedia.
 
 -}
-rssFeeds : List Feed
-rssFeeds =
-    []
+type alias Outlet =
+    { name : String
+    , pageUrl : Int -> String
+    }
 
 
-{-| Fetches the sources one after another. The task can't fail; failures
-are reported per source in the results.
+outlets : List Outlet
+outlets =
+    [ { name = "Mother Jones"
+      , pageUrl = \page -> "https://www.motherjones.com/feed/?paged=" ++ String.fromInt page
+      }
+    , { name = "The Nation"
+      , pageUrl = \page -> "https://www.thenation.com/feed/?post_type=article&paged=" ++ String.fromInt page
+      }
+    , { name = "Common Dreams"
+      , pageUrl = \page -> "https://www.commondreams.org/feeds/feed.rss?page=" ++ String.fromInt page
+      }
+    ]
+
+
+{-| Each page is a request through the CORS proxy, so paging is capped.
+Pages hold 10 (Mother Jones), 30 (Common Dreams) or 50 (The Nation)
+articles, covering roughly 2 weeks, 7 months, and 2.5 months respectively.
 -}
-fetchAll : { corsProxyKey : String, startDate : Date, today : Date } -> Task Never (List FeedResult)
-fetchAll { corsProxyKey, startDate, today } =
-    (fetchWikipedia startDate today
-        :: List.map (fetchFeed (proxies corsProxyKey)) rssFeeds
-    )
-        |> Task.sequence
+maxPagesPerOutlet : Int
+maxPagesPerOutlet =
+    10
 
 
-fetchFeed : List (String -> String) -> Feed -> Task Never FeedResult
-fetchFeed proxyUrlBuilders feed =
-    fetchViaProxies proxyUrlBuilders feed.url
-        |> Task.andThen (Rss.parse >> resultToTask)
-        |> Task.map Ok
-        |> Task.onError (Err >> Task.succeed)
-        |> Task.map (\stories -> { feedName = feed.name, stories = stories })
+{-| Pages through an outlet's feed (one page at a time, newest first) until
+it reaches the start date. The task can't fail; failures are reported in
+the result.
+-}
+fetchOutlet : String -> Date -> Outlet -> Task Never OutletResult
+fetchOutlet corsProxyKey startDate outlet =
+    let
+        proxyUrlBuilders =
+            proxies corsProxyKey
+
+        result stories complete =
+            { outletName = outlet.name
+            , stories = Result.map (List.map (\story -> { story | sourceName = outlet.name })) stories
+            , complete = complete
+            }
+
+        -- Deciding when to stop paging only needs approximate dates, so UTC
+        -- is used rather than the viewer's time zone.
+        isBeforeStartDate story =
+            Date.compare (Story.publishedDate Time.utc story) startDate == LT
+
+        fetchPage page storiesSoFar =
+            fetchViaProxies proxyUrlBuilders (outlet.pageUrl page)
+                |> Task.andThen (Rss.parse >> resultToTask)
+                |> Task.map Ok
+                |> Task.onError (Err >> Task.succeed)
+                |> Task.andThen
+                    (\pageResult ->
+                        case pageResult of
+                            Ok pageStories ->
+                                if List.isEmpty pageStories || List.any isBeforeStartDate pageStories then
+                                    Task.succeed (result (Ok (storiesSoFar ++ pageStories)) True)
+
+                                else if page >= maxPagesPerOutlet then
+                                    Task.succeed (result (Ok (storiesSoFar ++ pageStories)) False)
+
+                                else
+                                    fetchPage (page + 1) (storiesSoFar ++ pageStories)
+
+                            Err problem ->
+                                if page == 1 then
+                                    Task.succeed (result (Err problem) False)
+
+                                else
+                                    -- Keep the pages that did load.
+                                    Task.succeed (result (Ok storiesSoFar) False)
+                    )
+    in
+    fetchPage 1 []
 
 
 resultToTask : Result x a -> Task x a

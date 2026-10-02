@@ -158,6 +158,7 @@ parseLine date line state =
                         , linkedArticles =
                             Regex.find wikiLink content
                                 |> List.filterMap (.submatches >> wikiLinkArticle)
+                        , summary = ""
                         }
                             :: state.stories
                 }
