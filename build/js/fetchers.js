@@ -2,6 +2,7 @@ import { parseRSSDate, normalizeTitle } from './utils.js';
 
 const PROXIES = [
   (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  (u) => `https://r.jina.ai/http://${u.replace(/^https?:\/\//, '')}`,
   (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
 ];
 
