@@ -56,10 +56,16 @@ async function main() {
 
   if (dateInput) {
     const d = daysAgo(14);
-    dateInput.value = formatDateISO(d);
-    const max = formatDateISO(daysAgo(365));
-    dateInput.max = max;
-    dateInput.min = max;
+    const maxDate = daysAgo(365);
+    const maxStr = formatDateISO(maxDate);
+    dateInput.max = maxStr;
+    dateInput.min = '2000-01-01';
+    const dObj = new Date(formatDateISO(d));
+    if (dObj > maxDate) {
+      dateInput.value = maxStr;
+    } else {
+      dateInput.value = formatDateISO(d);
+    }
   }
 
   if (form) {
