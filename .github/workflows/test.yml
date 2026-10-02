@@ -26,4 +26,4 @@ jobs:
         run: raco pkg install --auto pollen
 
       - name: Run Racket tests
-        run: raco test test/test-ranker.rkt
+        run: raco test test/ranker-test.rkt
