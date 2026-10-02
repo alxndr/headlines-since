@@ -36,13 +36,20 @@ type alias FeedResult =
     }
 
 
-{-| Google News (<https://news.google.com/rss>) is deliberately absent: Google
-answers requests from CORS proxies with a "Sorry..." block page (HTTP 503).
+{-| Currently empty; the RSS and CORS proxy code is kept for adding outlets.
+
+Removed sources:
+
+  - Google News (<https://news.google.com/rss>): Google answers requests from
+    CORS proxies with a "Sorry..." block page (HTTP 503).
+  - BBC News (<https://feeds.bbci.co.uk/news/rss.xml>): its headlines can't
+    be matched to Wikipedia events reliably, so they couldn't be ranked or
+    merged with them, and its significant stories were already on Wikipedia.
+
 -}
 rssFeeds : List Feed
 rssFeeds =
-    [ { name = "BBC News", url = "https://feeds.bbci.co.uk/news/rss.xml" }
-    ]
+    []
 
 
 {-| Fetches the sources one after another. The task can't fail; failures

@@ -14,9 +14,12 @@ The code in this project was bootstrapped by Cohere's [`north-mini-code-1.0`](ht
 ## Data Sources
 
 - **[Wikipedia's Current Events portal](https://en.wikipedia.org/wiki/Portal:Current_events)**: an editor-curated list of each day's notable events, with citations. One page per day, so it covers any start date. Fetched directly from the Wikipedia API (no proxy needed).
-- **BBC News RSS**: fetched through CORS proxies ([corsproxy.io](https://corsproxy.io/) if an API key is configured, falling back to [allorigins.win](https://allorigins.win/)). The feed only contains roughly the last day or two of stories.
 
-Google News RSS was removed as a source: Google answers requests from CORS proxies with a "Sorry..." block page (HTTP 503).
+The app can also read RSS feeds, fetched through CORS proxies ([corsproxy.io](https://corsproxy.io/) if an API key is configured, falling back to [allorigins.win](https://allorigins.win/)), but no RSS feeds are currently configured.
+
+Removed sources:
+- **Google News RSS**: Google answers requests from CORS proxies with a "Sorry..." block page (HTTP 503).
+- **BBC News RSS**: its headlines link to no Wikipedia article, so they can't be given a public-interest score or reliably matched to Wikipedia events about the same story (tested: exact citation URLs matched 0 of 33 headlines; title word overlap and Wikipedia search were both wrong too often). Its significant stories were already covered by Wikipedia.
 
 ## Configuration
 
