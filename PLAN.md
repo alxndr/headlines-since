@@ -127,49 +127,50 @@ If using custom Racket build instead of Pollen, `.pm/.pp` are replaced by Racket
 ## 6. TODOs & Phased Plan
 
 ### Phase 1: Setup & Scaffolding
-- [ ] Create GitHub repo `headlines-since` (if not exists)
-- [ ] Decide build system: Pollen vs custom Racket build. Document choice in README if needed.
-- [ ] Set up basic Racket project structure (`info.rkt` optional)
-- [ ] Create `PLAN.md` (this file) — track progress here
-- [ ] Scaffold minimal form UI (date input, max = today-365 days; number input, sensible range e.g. 5–20)
-- [ ] Set up static build output to `build/`
+- [x] Create GitHub repo `headlines-since` (if not exists)
+- [x] Decide build system: Pollen vs custom Racket build. Document choice in README if needed.
+- [x] Set up basic Racket project structure (`info.rkt` optional)
+- [x] Create `PLAN.md` (this file) — track progress here
+- [x] Scaffold minimal form UI (date input, max = today-365 days; number input, sensible range e.g. 5–20)
+- [x] Set up static build output to `build/`
 
 ### Phase 2: Data Fetching (Client-Side)
-- [ ] Implement RSS fetcher with CORS proxy (Google News RSS first)
-- [ ] Add pluggable fetch layer (support multiple RSS feeds)
-- [ ] Parse RSS (DOMParser) and normalize fields
-- [ ] Filter by `publishedAt >= userDate`
-- [ ] Deduplicate by URL and near-duplicate titles
-- [ ] Add fallback proxy(s) and basic error handling
-- [ ] Explore adding other sources: AP, Reuters, BBC, Guardian (optional but useful)
+- [x] Implement RSS fetcher with CORS proxy (Google News RSS first)
+- [x] Add pluggable fetch layer (support multiple RSS feeds)
+- [x] Parse RSS (DOMParser) and normalize fields
+- [x] Filter by `publishedAt >= userDate`
+- [x] Deduplicate by URL and near-duplicate titles
+- [x] Add fallback proxy(s) and basic error handling
+- [x] Explore adding other sources: AP, Reuters, BBC, Guardian (optional but useful)
 - [ ] Evaluate GNews API path (document key-exposure tradeoff) — defer unless RSS coverage insufficient
 
 ### Phase 3: Ranking & Selection (Individual Stories First)
-- [ ] Write core scoring in JS (`ranker.js`) per algorithm above
-- [ ] Implement coverage/cluster detection (token similarity) to power `coverageBoost`
-- [ ] Implement recency decay, impact keyword scoring, soft authority boost
-- [ ] Select top N individual stories (no forced topic diversity)
-- [ ] Prefer canonical representative per event to reduce duplicates
-- [ ] Write reference implementation in Racket (`ranker.rkt`) with sample cases (optional but keeps bulk in Racket)
-- [ ] Add lightweight tests (Racket `rackunit`) for scoring logic
+- [x] Write core scoring in JS (`ranker.js`) per algorithm above
+- [x] Implement coverage/cluster detection (token similarity) to power `coverageBoost`
+- [x] Implement recency decay, impact keyword scoring, soft authority boost
+- [x] Select top N individual stories (no forced topic diversity)
+- [x] Prefer canonical representative per event to reduce duplicates
+- [x] Write reference implementation in Racket (`ranker.rkt`) with sample cases (optional but keeps bulk in Racket)
+- [x] Add lightweight tests (Racket `rackunit`) for scoring logic
 
 ### Phase 4: UI/UX (Minimal)
-- [ ] Minimal, clean styling (`styles.css.pp` or plain CSS)
-- [ ] Form + results layout, mobile-friendly
-- [ ] Loading, empty state ("No stories found for this range"), error states
-- [ ] Show per-story: title, source, date (relative or readable), external link
-- [ ] Keep UI minimal as requested
+- [x] Minimal, clean styling (`styles.css.pp` or plain CSS)
+- [x] Form + results layout, mobile-friendly
+- [x] Loading, empty state ("No stories found for this range"), error states
+- [x] Show per-story: title, source, date (relative or readable), external link
+- [x] Keep UI minimal as requested
 
 ### Phase 5: Build, Deploy & Polish
-- [ ] GitHub Actions: build with Racket (Pollen/render) and deploy `build/` to `gh-pages`
-- [ ] Enable GitHub Pages from `gh-pages` branch
-- [ ] Test across desktop/mobile
-- [ ] Update README with purpose, usage, build instructions
-- [ ] Verify SSR/static output is correct
-- [ ] Manual QA with sample date ranges (recent, 1 week ago, 2 weeks ago, older)
+- [x] GitHub Actions: build with Pollen and deploy `build/` to `gh-pages`
+- [x] Enable GitHub Pages from `gh-pages` branch (via Actions)
+- [x] Test across desktop/mobile (deployed)
+- [x] Update README with purpose, usage, build instructions
+- [x] Verify SSR/static output is correct
+- [x] Manual QA with sample date ranges
+- [x] Add tests to CI
 
 ### Phase 6: Future Enhancements (Optional)
-- [ ] Add more RSS sources and merge results
+- [ ] Add more RSS sources and merge results (more outlets)
 - [ ] Tweak weights based on real-world testing
 - [ ] Cache results in `localStorage` for identical queries
 - [ ] Add "how we ranked" explainer (minimal text)
