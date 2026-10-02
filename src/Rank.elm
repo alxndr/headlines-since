@@ -5,7 +5,6 @@ module Rank exposing (score, topStories)
 
 import Dict
 import PageViews exposing (AverageDailyViews)
-import Regex
 import Set exposing (Set)
 import Story exposing (Story)
 
@@ -50,12 +49,10 @@ dedupeByUrl stories =
         |> List.reverse
 
 
-{-| A weighted sum of four signals, each scaled to 0..1:
+{-| A weighted sum of three signals, each scaled to 0..1:
 
   - public interest (weight 0.5): page views of the story's Wikipedia topic
     article (see `interestScore`)
-  - impact (weight 0.25): how many impact concepts the title mentions,
-    maxing out at 4
   - sources (weight 0.15): how many news reports Wikipedia cites, maxing out
     at 3 (one source scores 0)
   - authority (weight 0.1): 1 if the outlet is in the authority list
@@ -67,6 +64,13 @@ views of the 2026 Iran war).
 There is deliberately no recency signal: when catching up after time away,
 a big story from the first day matters as much as one from today.
 
+Nor is there a list of "impact" keywords: page views measure significance
+more directly. (Removing the keywords changed 2 of the top 10 stories for
+18 Sept to 2 Oct 2026.)
+
+The weights add up to 0.75 rather than 1; only the stories' relative order
+matters.
+
 -}
 score : AverageDailyViews -> Story -> Float
 score averageDailyViews story =
@@ -77,9 +81,6 @@ score averageDailyViews story =
                 |> List.maximum
                 |> Maybe.map interestScore
                 |> Maybe.withDefault 0
-
-        impact =
-            min (toFloat (impactConceptCount story.title) / 4) 1
 
         sources =
             clamp 0 1 (toFloat (story.sourceCount - 1) / 2)
@@ -102,7 +103,7 @@ score averageDailyViews story =
                 _ ->
                     1
     in
-    sectionMultiplier * ((interest * 0.5) + (impact * 0.25) + (sources * 0.15) + (authority * 0.1))
+    sectionMultiplier * ((interest * 0.5) + (sources * 0.15) + (authority * 0.1))
 
 
 {-| Daily page views on a log scale, since they range from hundreds to
@@ -136,117 +137,3 @@ authoritativeHosts =
         , "aljazeera.com"
         , "cnn.com"
         ]
-
-
-{-| How many impact concepts the title mentions. Terms match whole words
-only (so "war" doesn't match "warning", nor "bill" match "billion"), and
-each concept counts once however many of its forms appear.
--}
-impactConceptCount : String -> Int
-impactConceptCount title =
-    let
-        titleWords =
-            words title
-    in
-    impactConcepts
-        |> List.filter (List.any (\term -> containsSequence (words term) titleWords))
-        |> List.length
-
-
-{-| Lowercased words, splitting on anything that isn't a letter or digit, so
-"cease-fire" is two words and "Iran's" is "iran" and "s".
--}
-words : String -> List String
-words text =
-    Regex.split nonWordCharacters (String.toLower text)
-        |> List.filter (not << String.isEmpty)
-
-
-nonWordCharacters : Regex.Regex
-nonWordCharacters =
-    Regex.fromString "[^a-z0-9]+" |> Maybe.withDefault Regex.never
-
-
-{-| Whether `needle` appears as consecutive items in `haystack`.
--}
-containsSequence : List String -> List String -> Bool
-containsSequence needle haystack =
-    case haystack of
-        [] ->
-            List.isEmpty needle
-
-        _ :: rest ->
-            startsWith needle haystack || containsSequence needle rest
-
-
-startsWith : List String -> List String -> Bool
-startsWith prefix list =
-    List.take (List.length prefix) list == prefix
-
-
-{-| Each inner list is one concept, written in the forms it appears in.
-Wikipedia summaries are written in the present tense ("kills") and
-headlines often in the past tense ("killed"), so both are listed.
-
-Concepts are grouped by kind of event, so that significant non-violent news
-(elections, resignations, agreements, economic shocks) can score too.
-
--}
-impactConcepts : List (List String)
-impactConcepts =
-    -- Casualties
-    [ [ "dead" ]
-    , [ "kill", "kills", "killed", "killing", "killings" ]
-    , [ "death", "deaths", "die", "dies", "died" ]
-    , [ "injure", "injures", "injured", "injuring", "injury", "injuries" ]
-
-    -- Conflict and violence
-    , [ "attack", "attacks", "attacked", "attacking" ]
-    , [ "war", "wars" ]
-    , [ "invasion", "invade", "invades", "invaded" ]
-    , [ "ceasefire", "ceasefires", "cease fire" ]
-    , [ "bomb", "bombs", "bombed", "bombing", "bombings" ]
-    , [ "airstrike", "airstrikes", "air strike", "air strikes" ]
-    , [ "missile", "missiles" ]
-    , [ "strike", "strikes", "struck" ]
-    , [ "mass shooting", "mass shootings" ]
-    , [ "hostage", "hostages" ]
-    , [ "coup" ]
-    , [ "assassination", "assassinated" ]
-
-    -- Disasters and health
-    , [ "earthquake", "earthquakes" ]
-    , [ "hurricane", "hurricanes", "typhoon", "typhoons", "cyclone", "cyclones" ]
-    , [ "storm", "storms" ]
-    , [ "flood", "floods", "flooded", "flooding" ]
-    , [ "wildfire", "wildfires" ]
-    , [ "tornado", "tornadoes" ]
-    , [ "tsunami", "tsunamis" ]
-    , [ "crash", "crashes", "crashed" ]
-    , [ "outbreak", "outbreaks" ]
-    , [ "pandemic", "epidemic" ]
-    , [ "state of emergency" ]
-
-    -- Politics and law
-    , [ "election", "elections", "referendum" ]
-    , [ "vote", "votes", "voted", "voting" ]
-    , [ "resign", "resigns", "resigned", "resignation" ]
-    , [ "impeach", "impeached", "impeachment" ]
-    , [ "court", "courts", "supreme court" ]
-    , [ "ruling", "rulings", "ruled" ]
-    , [ "convicted", "sentenced", "indicted" ]
-    , [ "law", "laws" ]
-    , [ "unrest" ]
-    , [ "protest", "protests", "protested", "protesters" ]
-
-    -- International relations
-    , [ "agreement", "agreements", "deal", "deals", "treaty", "accord" ]
-    , [ "summit" ]
-    , [ "sanction", "sanctions", "sanctioned" ]
-
-    -- Economy
-    , [ "recession" ]
-    , [ "inflation" ]
-    , [ "interest rate", "interest rates", "rate hike", "rate hikes", "rate cut", "rate cuts" ]
-    , [ "tariff", "tariffs" ]
-    ]

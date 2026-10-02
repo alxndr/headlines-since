@@ -73,10 +73,10 @@ suite =
                         Rank.score (Dict.fromList [ ( "Other", 100000 ) ]) { baseStory | topicArticles = [ "Topic" ] }
                             |> expectScore 0
                 ]
-            , test "impact keywords add up to 0.25" <|
+            , test "the title's words don't affect the score" <|
                 \_ ->
                     scoreWithoutViews (titled "Earthquake and tsunami: dozens dead, hundreds injured")
-                        |> expectScore 0.25
+                        |> expectScore 0
             , test "each extra cited source adds 0.075, up to 0.15" <|
                 \_ ->
                     [ 1, 2, 3, 5 ]
@@ -92,43 +92,6 @@ suite =
                     [ Just "Sports", Just "Arts and culture", Just "Politics and elections", Nothing ]
                         |> List.map (\section -> scoreWithoutViews { baseStory | sourceHost = "apnews.com", section = section })
                         |> Expect.equal [ 0.05, 0.05, 0.1, 0.1 ]
-            ]
-        , describe "impact keyword matching"
-            [ test "matches whole words only" <|
-                \_ ->
-                    -- Each of these contains an impact term inside a longer word.
-                    [ "Storm warning issued"
-                    , "Award-winning lawyer files billion-dollar claim"
-                    , "Deadline nears for courtesy visit"
-                    ]
-                        |> List.map (titled >> scoreWithoutViews)
-                        |> Expect.equal
-                            [ 0.25 * (1 / 4) -- only "storm"
-                            , 0
-                            , 0
-                            ]
-            , test "different forms of one concept count once" <|
-                \_ ->
-                    scoreWithoutViews (titled "Attack follows attacks")
-                        |> expectScore (0.25 * (1 / 4))
-            , test "present-tense Wikipedia phrasing matches" <|
-                \_ ->
-                    scoreWithoutViews (titled "A car bombing kills 31 people and injures 100")
-                        |> expectScore (0.25 * (3 / 4))
-            , test "non-violent news counts too" <|
-                \_ ->
-                    scoreWithoutViews (titled "Prime minister resigns after trade deal collapses")
-                        |> expectScore (0.25 * (2 / 4))
-            , test "multi-word terms match as phrases" <|
-                \_ ->
-                    ( scoreWithoutViews (titled "The central bank announces a rate hike")
-                    , scoreWithoutViews (titled "Hike in the rate of growth")
-                    )
-                        |> Expect.equal ( 0.25 * (1 / 4), 0 )
-            , test "hyphenated words are split" <|
-                \_ ->
-                    scoreWithoutViews (titled "Talks on a cease-fire")
-                        |> expectScore (0.25 * (1 / 4))
             ]
         , describe "topStories"
             [ test "highest score first, limited to the count" <|

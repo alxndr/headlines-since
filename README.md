@@ -6,7 +6,7 @@ The code in this project was bootstrapped by Cohere's [`north-mini-code-1.0`](ht
 
 ## Goals
 
-- **Biggest individual stories**: Ranked by significance (public interest, impact, number of sources, soft authority), not by how recent they are. No forced topic diversification.
+- **Biggest individual stories**: Ranked by significance (public interest, number of sources, soft authority), not by how recent they are. No forced topic diversification.
 - **Elm frontend**: Clean, simple UI and all app logic written in [Elm](https://elm-lang.org/). The only JavaScript is `src/index.js`, which starts the Elm app.
 - **Client-side data**: Fetches news in the browser, from Wikipedia directly and from RSS feeds via CORS proxies.
 - **Pure static**: Deployed as static HTML/CSS/JS to GitHub Pages (no backend).
@@ -103,12 +103,13 @@ GitHub Actions workflow (`.github/workflows/deploy.yml`) builds the app with Vit
 Stories are filtered to those published on or after the start date (in your time zone), then scored as a weighted sum of:
 
 - **Public interest (0.5)**: average daily [Wikipedia page views](https://wikitech.wikimedia.org/wiki/Analytics/AQS/Pageviews) during the date range for the story's topic article (e.g. "2026 Iran war"), on a log scale. Only Wikipedia events have topics. For ranges older than 60 days, only the 50 most-cited topics are looked up, because each needs its own request.
-- **Impact (0.25)**: impact keywords in the title, matched as whole words (casualties, conflict, disasters, elections, resignations, agreements, economic shocks, etc.)
 - **Sources (0.15)**: how many news reports a Wikipedia event cites
 - **Authority (0.1)**: whether the outlet (for Wikipedia events, the first cited outlet) is a major one
 
 Sports and arts stories get half the score, because they draw far more page views than their significance warrants.
 
-Recency is deliberately not a factor: when catching up after time away, a big story from the first day matters as much as one from today.
+Two things are deliberately not factors:
+- **Recency**: when catching up after time away, a big story from the first day matters as much as one from today.
+- **Keyword lists** (e.g. "killed", "election"): page views measure significance more directly, and a hand-written list skews toward whatever kinds of news it happens to cover.
 
 Top N individual stories are returned (deduped by URL).
