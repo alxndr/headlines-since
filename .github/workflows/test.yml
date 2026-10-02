@@ -2,13 +2,12 @@ name: Tests
 
 on:
   push:
-    branches: ["main"]
+    branches: [ main ]
   pull_request:
-    branches: ["main"]
-  workflow_dispatch:
+    branches: [ main ]
 
 jobs:
-  racket-tests:
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -17,9 +16,14 @@ jobs:
       - name: Setup Racket
         uses: Bogdanp/setup-racket@v1.13
         with:
-          architecture: 'x64'
           distribution: 'full'
           version: '8.18'
 
-      - name: Run tests
-        run: raco test test/
+      - name: Create config
+        run: echo "export const CORS_PROXY_KEY='';" > src/js/config.js
+
+      - name: Install Pollen
+        run: raco pkg install --auto pollen
+
+      - name: Run Racket tests
+        run: raco test test/test-ranker.rkt
