@@ -2,4 +2,4 @@ build/
 node_modules/
 elm-stuff/
 .env
-src/JS/config.js
+src/config.js

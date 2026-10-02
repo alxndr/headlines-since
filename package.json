@@ -1,0 +1,16 @@
+{
+  "name": "headlines-since",
+  "version": "1.0.0-alpha",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "elm make src/Main.elm --output build/js/elm.js && mkdir -p build && cp src/index.html build/ && cp src/styles.css build/ && cp -r src/JS/* build/js/",
+    "preview": "vite preview",
+    "elm:make": "elm make src/Main.elm --output build/js/elm.js"
+  },
+  "devDependencies": {
+    "elm": "^0.19.1-5",
+    "vite": "^5.4.0",
+    "vite-plugin-elm": "^3.0.1"
+  }
+}
