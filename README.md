@@ -6,7 +6,7 @@ The code in this project was bootstrapped by Cohere's [`north-mini-code-1.0`](ht
 
 ## Goals
 
-- **Biggest individual stories**: Ranked by significance (public interest, number of sources, soft authority), not by how recent they are. No forced topic diversification.
+- **Biggest individual stories**: Ranked by significance (public interest, number of sources, soft authority), not by how recent they are. Reports of the same event are merged, and a gentle penalty on repeated topics keeps one big ongoing story (e.g. a war) from filling the whole list, without hiding its distinct developments.
 - **Elm frontend**: Clean, simple UI and all app logic written in [Elm](https://elm-lang.org/). The only JavaScript is `src/index.js`, which starts the Elm app.
 - **Client-side data**: Fetches news in the browser, from Wikipedia directly and from RSS feeds via CORS proxies.
 - **Pure static**: Deployed as static HTML/CSS/JS to GitHub Pages (no backend).
@@ -97,6 +97,7 @@ GitHub Actions workflow (`.github/workflows/deploy.yml`) builds the app with Vit
 | `src/WikipediaCurrentEvents.elm` | Parses Wikipedia Current Events day pages into stories |
 | `src/Rfc822.elm` | Parses RSS `<pubDate>` dates |
 | `src/PageViews.elm` | Fetches Wikipedia page views for story topics |
+| `src/SameEvent.elm` | Recognises different reports of the same event |
 | `src/Rank.elm` | Scores and picks the top stories |
 | `src/Story.elm` | The `Story` type |
 
@@ -114,4 +115,9 @@ Two things are deliberately not factors:
 - **Recency**: when catching up after time away, a big story from the first day matters as much as one from today.
 - **Keyword lists** (e.g. "killed", "election"): page views measure significance more directly, and a hand-written list skews toward whatever kinds of news it happens to cover.
 
-Top N individual stories are returned (deduped by URL).
+Stories are then picked one at a time, highest score first:
+
+- **Same event, merged**: a report of an event that's already been picked (e.g. a disaster's death toll updated on later days) is listed under that story as a related report, rather than taking up a slot. Two Wikipedia events count as the same event if they're at most 3 days apart and link to largely the same Wikipedia articles (weighted Jaccard similarity of 0.55 or more, where articles linked from many events, like "United States", count for little).
+- **Repeated topics, penalised**: each further story from a topic that's already been picked (e.g. a third story filed under "2026 Iran war") scores 15% less than the one before, so other news can compete.
+
+Duplicate URLs are only considered once.

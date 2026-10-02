@@ -19,6 +19,8 @@ items have no topics or section, and count as one source:
     topics, whose page views measure public interest in the story
   - `section`: the portal's section heading, e.g. "Sports"
   - `sourceCount`: how many news reports the event cites
+  - `linkedArticles`: the Wikipedia articles the event's text links to,
+    used to recognise reports of the same event
 
 -}
 type alias Story =
@@ -31,6 +33,7 @@ type alias Story =
     , topicArticles : List String
     , section : Maybe String
     , sourceCount : Int
+    , linkedArticles : List String
     }
 
 

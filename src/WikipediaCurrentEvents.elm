@@ -155,6 +155,9 @@ parseLine date line state =
                                 |> Maybe.withDefault []
                         , section = state.section
                         , sourceCount = List.length citations
+                        , linkedArticles =
+                            Regex.find wikiLink content
+                                |> List.filterMap (.submatches >> wikiLinkArticle)
                         }
                             :: state.stories
                 }

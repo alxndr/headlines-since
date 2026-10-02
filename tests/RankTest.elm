@@ -1,5 +1,6 @@
 module RankTest exposing (suite)
 
+import Date
 import Dict
 import Expect
 import Rank
@@ -19,6 +20,7 @@ baseStory =
     , topicArticles = []
     , section = Nothing
     , sourceCount = 1
+    , linkedArticles = []
     }
 
 
@@ -38,6 +40,30 @@ scoreWithViews averageDailyViews =
 scoreWithoutViews : Story -> Float
 scoreWithoutViews =
     Rank.score Dict.empty
+
+
+{-| One of several reports of the same earthquake, on the given day of June,
+citing `sourceCount` sources (more sources rank higher).
+-}
+quakeReport : Int -> Int -> Story
+quakeReport dayOfMonth sourceCount =
+    { baseStory
+        | title = "Earthquake toll update"
+        , url = "https://example.com/quake-" ++ String.fromInt dayOfMonth
+        , publishedAt = Story.DateOnly (Date.fromCalendarDate 2026 Time.Jun dayOfMonth)
+        , sourceCount = sourceCount
+        , linkedArticles = [ "Venezuela", "Earthquake" ]
+    }
+
+
+otherEvent : String -> Story
+otherEvent linkedArticle =
+    { baseStory
+        | title = linkedArticle
+        , url = "https://example.com/" ++ linkedArticle
+        , publishedAt = Story.DateOnly (Date.fromCalendarDate 2026 Time.Jun 25)
+        , linkedArticles = [ linkedArticle ]
+    }
 
 
 expectScore : Float -> Float -> Expect.Expectation
@@ -94,22 +120,60 @@ suite =
                         |> Expect.equal [ 0.05, 0.05, 0.1, 0.1 ]
             ]
         , describe "topStories"
-            [ test "highest score first, limited to the count" <|
+            [ test "reports of the same event are merged under the best one, oldest first, and don't use up the count" <|
+                \_ ->
+                    [ quakeReport 26 3
+                    , quakeReport 25 1
+                    , quakeReport 27 2
+                    , otherEvent "Kish Island"
+                    ]
+                        |> Rank.topStories Time.utc Dict.empty 2
+                        |> List.map (\ranked -> ( ranked.story.url, List.map .url ranked.relatedReports ))
+                        |> Expect.equal
+                            [ ( "https://example.com/quake-26", [ "https://example.com/quake-25", "https://example.com/quake-27" ] )
+                            , ( "https://example.com/Kish Island", [] )
+                            ]
+            , test "a chain of daily updates stays together, even beyond 3 days from the first" <|
+                \_ ->
+                    [ quakeReport 21 3, quakeReport 23 1, quakeReport 25 1, quakeReport 27 1, otherEvent "Kish Island" ]
+                        |> Rank.topStories Time.utc Dict.empty 1
+                        |> List.map (\ranked -> List.length ranked.relatedReports)
+                        |> Expect.equal [ 3 ]
+            , test "each further story from the same topic is penalised 15%" <|
+                \_ ->
+                    let
+                        views =
+                            -- Scores: big topic 0.5, other topic about 0.45.
+                            Dict.fromList [ ( "Big topic", 10 ^ 5.5 ), ( "Other topic", 10 ^ 5.25 ) ]
+
+                        onTopic topic name =
+                            { baseStory | title = name, url = "https://example.com/" ++ name, topicArticles = [ topic ] }
+                    in
+                    [ onTopic "Big topic" "big 1"
+                    , onTopic "Big topic" "big 2"
+                    , onTopic "Big topic" "big 3"
+                    , onTopic "Other topic" "other 1"
+                    ]
+                        |> Rank.topStories Time.utc views 3
+                        |> List.map (.story >> .title)
+                        -- big 2 drops to 0.425, below other 1 (0.45)
+                        |> Expect.equal [ "big 1", "other 1", "big 2" ]
+            , test "highest score first, limited to the count" <|
                 \_ ->
                     [ { baseStory | title = "small", url = "https://example.com/small", topicArticles = [ "Small" ] }
                     , { baseStory | title = "big", url = "https://example.com/big", topicArticles = [ "Big" ] }
                     , { baseStory | title = "medium", url = "https://example.com/medium", topicArticles = [ "Medium" ] }
                     ]
-                        |> Rank.topStories (Dict.fromList [ ( "Small", 2000 ), ( "Big", 200000 ), ( "Medium", 20000 ) ]) 2
-                        |> List.map .title
+                        |> Rank.topStories Time.utc (Dict.fromList [ ( "Small", 2000 ), ( "Big", 200000 ), ( "Medium", 20000 ) ]) 2
+                        |> List.map (.story >> .title)
                         |> Expect.equal [ "big", "medium" ]
             , test "duplicate URLs are kept only once" <|
                 \_ ->
                     [ { baseStory | title = "first", sourceCount = 2 }
                     , { baseStory | title = "same url" }
                     ]
-                        |> Rank.topStories Dict.empty 10
-                        |> List.map .title
+                        |> Rank.topStories Time.utc Dict.empty 10
+                        |> List.map (.story >> .title)
                         |> Expect.equal [ "first" ]
             ]
         ]

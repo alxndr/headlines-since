@@ -25,7 +25,9 @@
 
 * duplicate stories
     * [ ] the same event can appear twice from different sources (e.g. a Wikipedia event summary and a BBC headline), with different URLs, so deduping by URL misses them
-    * [ ] if Google News comes back as a source: its titles end in " - Outlet Name", which adds noise words to the title-similarity clustering; strip the suffix before comparing
+    * [x] reports of the same event on different days (e.g. death toll updates) are merged, for Wikipedia events
+    * [ ] the first report of an event and later updates aren't always merged when they share a specific topic but few other links (e.g. "A doublet earthquake strikes Yaracuy" and "The confirmed toll of the earthquakes in Venezuela rises", both under "2026 Venezuela earthquakes"); idea: treat a topic with only a few events in the range as a single event
+    * [ ] if Google News comes back as a source: its titles end in " - Outlet Name"; strip the suffix (the outlet is already shown separately)
 
 * smaller trade-offs from the Elm port
     * [ ] Elm's HTTP requests can't set fetch's `cache: 'no-store'` like the old JS did; check whether browser/proxy caching ever serves stale feeds

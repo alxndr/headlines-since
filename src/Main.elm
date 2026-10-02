@@ -4,11 +4,11 @@ import Browser
 import Date exposing (Date)
 import Dict
 import Feeds exposing (FeedResult)
-import Html exposing (Html, article, button, div, h1, h3, input, label, p, section, text)
+import Html exposing (Html, article, button, details, div, h1, h3, input, label, li, p, section, summary, text, ul)
 import Html.Attributes as Attr exposing (attribute, class, disabled, for, href, id, name, rel, required, target, type_, value)
 import Html.Events exposing (onInput, onSubmit)
 import PageViews exposing (AverageDailyViews)
-import Rank
+import Rank exposing (RankedStory)
 import Story exposing (Story)
 import Task
 import Time
@@ -62,7 +62,7 @@ type Request
     | Loading
     | Failed String
     | Loaded
-        { stories : List Story
+        { stories : List RankedStory
         , warnings : List String
         }
 
@@ -250,7 +250,7 @@ rankFeedResults zone query feedResults pageViews =
             { stories =
                 loadedStories
                     |> List.filter isOnOrAfterStartDate
-                    |> Rank.topStories (Result.withDefault Dict.empty pageViews) query.count
+                    |> Rank.topStories zone (Result.withDefault Dict.empty pageViews) query.count
             , warnings =
                 List.filterMap identity
                     [ if List.isEmpty failedFeeds then
@@ -385,8 +385,8 @@ viewProblems request =
             text ""
 
 
-viewStory : Time.Zone -> Story -> Html Msg
-viewStory zone story =
+viewStory : Time.Zone -> RankedStory -> Html Msg
+viewStory zone { story, relatedReports } =
     let
         sourcePrefix =
             if String.isEmpty story.sourceName then
@@ -405,7 +405,44 @@ viewStory zone story =
             div [ class "story-topics" ] [ text (String.join " › " story.topics) ]
         , div [ class "story-meta" ]
             [ text (sourcePrefix ++ formatPublishedAt zone story.publishedAt) ]
+        , viewRelatedReports zone relatedReports
         ]
+
+
+{-| Other reports of the same event, e.g. later updates to a death toll,
+collapsed by default.
+-}
+viewRelatedReports : Time.Zone -> List Story -> Html Msg
+viewRelatedReports zone relatedReports =
+    case relatedReports of
+        [] ->
+            text ""
+
+        _ ->
+            details [ class "related-reports" ]
+                [ summary []
+                    [ text
+                        (String.fromInt (List.length relatedReports)
+                            ++ (if List.length relatedReports == 1 then
+                                    " more report"
+
+                                else
+                                    " more reports"
+                               )
+                            ++ " of this event"
+                        )
+                    ]
+                , ul []
+                    (List.map
+                        (\report ->
+                            li []
+                                [ text (formatPublishedAt zone report.publishedAt ++ ": ")
+                                , Html.a [ href report.url, target "_blank", rel "noopener noreferrer" ] [ text report.title ]
+                                ]
+                        )
+                        relatedReports
+                    )
+                ]
 
 
 {-| e.g. "Fri 2 Oct 2026, 19:40" in the user's time zone, or just

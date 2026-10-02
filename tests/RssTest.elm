@@ -54,6 +54,7 @@ suite =
                               , topicArticles = []
                               , section = Nothing
                               , sourceCount = 1
+                              , linkedArticles = []
                               }
                             ]
                         )
@@ -71,6 +72,7 @@ suite =
                               , topicArticles = []
                               , section = Nothing
                               , sourceCount = 1
+                              , linkedArticles = []
                               }
                             ]
                         )

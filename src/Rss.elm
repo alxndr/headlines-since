@@ -89,6 +89,7 @@ toStory rawTitle rawLink publishedAt source =
     , topicArticles = []
     , section = Nothing
     , sourceCount = 1
+    , linkedArticles = []
     }
 
 

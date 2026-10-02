@@ -63,3 +63,13 @@ button {
   font-style: italic;
   color: #555;
 }
+
+.related-reports {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.related-reports summary {
+  cursor: pointer;
+  color: #555;
+}
