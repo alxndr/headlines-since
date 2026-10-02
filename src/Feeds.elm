@@ -76,7 +76,9 @@ resultToTask result =
 
 
 {-| Each proxy wraps a feed URL in its own URL. Proxies are tried in this
-order; corsproxy.io is only used when an API key was provided at build time.
+order. corsproxy.io comes first because the free allorigins.win often fails
+or hangs until the request times out; corsproxy.io is only used when an API
+key was provided at build time.
 -}
 proxies : String -> List (String -> String)
 proxies corsProxyKey =
@@ -95,7 +97,7 @@ proxies corsProxyKey =
         [ allOrigins ]
 
     else
-        [ allOrigins, corsProxyIo ]
+        [ corsProxyIo, allOrigins ]
 
 
 {-| Tries each proxy until one returns something that looks like XML. If
