@@ -4,8 +4,8 @@ const CORS_PROXY_KEY = import.meta.env.VITE_CORSPROXY_API_KEY || '';
 
 const PROXIES = [
   (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-  (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}&api-key=${CORS_PROXY_KEY}`,
-];
+  (u) => CORS_PROXY_KEY ? `https://corsproxy.io/?url=${encodeURIComponent(u)}&api-key=${CORS_PROXY_KEY}` : null,
+].filter(Boolean);
 
 const RSS_SOURCES = [
   'https://news.google.com/rss',
@@ -29,39 +29,6 @@ export async function fetchWithProxy(url) {
     }
   }
   throw lastErr || new Error('All proxies failed');
-}
-
-export function parseRSS(xml) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(xml, 'application/xml');
-  const parseError = doc.querySelector('parsererror');
-  if (parseError) return [];
-  const items = Array.from(doc.querySelectorAll('item'));
-  return items.map((it) => {
-    const title = it.querySelector('title')?.textContent || '';
-    const link = it.querySelector('link')?.textContent || '';
-    const pub = it.querySelector('pubDate')?.textContent || it.querySelector('pubdate')?.textContent || '';
-    const src = it.querySelector('source')?.textContent || it.getAttribute('source') || '';
-    const desc = it.querySelector('description')?.textContent || '';
-    const pubDate = parseRSSDate(pub);
-    return {
-      title: title.replace(/<[^>]+>/g, '').trim(),
-      url: link.trim(),
-      sourceName: src.trim() || guessSourceFromURL(link),
-      publishedAt: pubDate,
-      description: desc.replace(/<[^>]+>/g, '').trim(),
-      rawTitleNorm: normalizeTitle(title),
-    };
-  });
-}
-
-function guessSourceFromURL(u) {
-  try {
-    const host = new URL(u).hostname;
-    return host.replace(/^www\./, '');
-  } catch {
-    return '';
-  }
 }
 
 export async function fetchAllRSS() {
