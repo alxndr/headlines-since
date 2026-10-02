@@ -6,10 +6,14 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "elm:make": "elm make src/Main.elm --output build/js/elm.js"
+    "test": "elm-test",
+    "format": "elm-format --yes src tests",
+    "format:check": "elm-format --validate src tests"
   },
   "devDependencies": {
     "elm": "^0.19.1-5",
+    "elm-format": "^0.8.8",
+    "elm-test": "^0.19.1-revision17",
     "vite": "^5.4.0",
     "vite-plugin-elm": "^3.0.1"
   }

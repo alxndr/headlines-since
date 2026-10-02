@@ -53,3 +53,7 @@ button {
 .error {
   color: #b00;
 }
+
+.warning {
+  color: #8a5a00;
+}
