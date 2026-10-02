@@ -42,21 +42,19 @@ We need headlines from [user-date, today]. Without a backend, all fetching must 
 
 | Source | Free Tier | Date Range | Auth/Key | CORS from Browser | Notes |
 |---|---|---|---|---|---|
-| [Google News RSS](https://news.google.com/rss) | Free, no key | Heuristic by `<pubDate>`/RSS; easy to filter client-side | None | Blocked directly; needs CORS proxy | **Strong candidate to start.** No key exposed, simple, broad coverage. |
-| [GNews](https://gnews.io/) | 100 req/day, 10k/month | Good date range support (search from/to) | API key required | Works client-side but **key is exposed** in JS | Clean JSON, easy filtering. Acceptable for personal use, but we should document tradeoff. |
-| [NewsAPI.org](https://newsapi.org/) | Developer 100 req/day | `from`/`to` supported | API key | **CORS-blocked** from browser (designed for server use) | Cleaner data but requires proxy if used client-side. |
-| [MediaStack](https://mediastack.com/) | 500 req/month free | Historical search available | API key | Often needs proxy or server | Decent, but quota tight for frequent testing. |
-| [Bing News Search](https://www.microsoft.com/bing/apis/bing-news-search-api) | Free quota via Azure | Flexible date ranges | Azure key | Requires setup; may need proxy | Solid, but more setup friction. |
-| [AP RSS](https://apnews.com/rss), [Reuters RSS](https://www.reuters.com/rss), [BBC RSS](https://feeds.bbci.co.uk/news/rss.xml), [Guardian RSS](https://www.theguardian.com/rss) | Free | Varies (often recent-heavy) | None | Same CORS issue | Good to supplement Google News for coverage diversity/authority. Can query multiple RSS feeds in parallel. |
+| [Google News RSS](https://news.google.com/rss) | Free | Heuristic by `<pubDate>`/RSS | Via proxy key if needed | Requires CORS proxy | Currently in use (stable with configured proxy). |
+| [BBC News RSS](https://feeds.bbci.co.uk/news/rss.xml) | Free | Varies | Via proxy key if needed | Requires CORS proxy | Currently in use (stable subset for reliability). |
+| [GNews](https://gnews.io/) | 100 req/day, 10k/month | Good date range support | API key | Key exposed client-side | Not currently used; defer unless needed. |
+| [AP RSS](https://apnews.com/rss), [Reuters RSS](https://www.reuters.com/rss), [Guardian RSS](https://www.theguardian.com/rss) | Free | Varies | Via proxy | Proxy reliability varies | Available but disabled for now to improve stability. |
 
-### Proxy Strategy (for RSS & CORS-blocked APIs)
+### Proxy Strategy
 
-Since many RSS feeds and some APIs block direct browser fetches, we'll use a lightweight CORS proxy for client-side calls:
-- **Primary:** `https://api.allorigins.win/raw?url=...` (simple, widely used)
-- **Fallbacks:** `https://corsproxy.io/?`, `https://r.jina.ai/` style? Or `https://api.allorigins.win/get?` (if we need JSON wrapper) — prefer raw for RSS XML.
-- **Consideration:** Proxy reliability/rate limits. For personal use this is acceptable. Can add fallback in JS if first proxy fails.
+We use CORS proxies with build-time injected configuration:
+- **Primary:** `https://api.allorigins.win/raw?url=...`
+- **Secondary:** `https://corsproxy.io/?url=...&api-key=...` (key injected at build time via generated `config.js` from CI secret)
+- **Config management:** CORS proxy API key is stored as GitHub Actions secret (`CORS_PROXY_KEY`), injected during CI build into `src/js/config.js` (gitignored). Local dev uses `src/js/config.example.js` as template.
 
-**Decision:** **Start with Google News RSS + CORS proxy** (no API key, easiest path). Also design the fetch layer to be pluggable so we can add other RSS sources (AP/Reuters/BBC/Guardian) or swap to GNews if we later accept key exposure or add a tiny proxy.
+**Notes:** Proxies can be flaky; fetcher validates XML responses and tries fallbacks. Keys are not committed to git history.
 
 ---
 
@@ -115,7 +113,8 @@ headlines-since/
 │       ├── fetchers.js            # RSS/API fetch + proxy handling
 │       ├── cluster.js             # Clustering/similarity helpers
 │       ├── ranker.js              # Scoring logic (mirrors Racket)
-│       └── utils.js               # Date parsing, dedup, etc.
+│       ├── utils.js               # Date parsing, dedup, etc.
+│       └── config.example.js      # Example config (real config.js is gitignored)
 ├── build/                         # Generated static output (gitignored in src, deployed)
 └── test/                          # (optional) rackunit tests for ranker.rkt
 ```
@@ -141,7 +140,10 @@ If using custom Racket build instead of Pollen, `.pm/.pp` are replaced by Racket
 - [x] Filter by `publishedAt >= userDate`
 - [x] Deduplicate by URL and near-duplicate titles
 - [x] Add fallback proxy(s) and basic error handling
-- [x] Explore adding other sources: AP, Reuters, BBC, Guardian (optional but useful)
+- [x] Explore adding other sources: AP, Reuters, BBC, Guardian (optional but useful) - simplified to stable subset due to proxy reliability
+- [x] Move CORS proxy API key to build-time config (generated from secrets, not committed)
+- [x] Remove secrets from git history
+- [ ] Re-evaluate additional RSS sources as proxy ecosystem stabilizes
 - [ ] Evaluate GNews API path (document key-exposure tradeoff) — defer unless RSS coverage insufficient
 
 ### Phase 3: Ranking & Selection (Individual Stories First)
@@ -175,6 +177,9 @@ If using custom Racket build instead of Pollen, `.pm/.pp` are replaced by Racket
 - [ ] Cache results in `localStorage` for identical queries
 - [ ] Add "how we ranked" explainer (minimal text)
 - [ ] Update GitHub Actions to use Node.js 24-compatible action versions (address Node.js 20 deprecation warnings)
+- [ ] Improve proxy fallback chain and error handling
+- [ ] Rotate CORS proxy API key and document rotation process
+- [ ] Re-enable additional RSS sources when stable proxies available
 
 ---
 
@@ -187,14 +192,16 @@ If using custom Racket build instead of Pollen, `.pm/.pp` are replaced by Racket
 | Minimal vs dark mode? | **Minimal UI.** Dark mode not important now. | Per user request |
 | Outlet preferences? | **None.** Significance/blast-radius only. | Per user request |
 | Build system? | **Pollen preferred.** Re-evaluate if friction arises. | Tentative |
+| Build-time secrets | **Config generated at build** (src/js/config.js from CI secret or local file, gitignored) | Current |
+| Proxy reliability | Prioritized stable proxies with key auth; reduced source set for reliability | Current |
 
 ---
 
 ## 8. Progress Tracking
 
 - [x] PLAN.md created with intent, decisions, TODOs
-- [ ] Phase 1 complete
-- [ ] Phase 2 complete
-- [ ] Phase 3 complete
-- [ ] Phase 4 complete
-- [ ] Phase 5 complete
+- [x] Phase 1 complete
+- [x] Phase 2 complete
+- [x] Phase 3 complete
+- [x] Phase 4 complete
+- [x] Phase 5 complete
