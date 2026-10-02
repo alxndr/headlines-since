@@ -55,16 +55,17 @@ async function main() {
   const results = $('#hs-results');
 
   if (dateInput) {
+    const today = new Date();
+    const oneYearAgo = daysAgo(365);
+    const todayStr = formatDateISO(today);
+    const oneYearAgoStr = formatDateISO(oneYearAgo);
+    dateInput.max = todayStr;
+    dateInput.min = oneYearAgoStr;
     const d = daysAgo(14);
-    const maxDate = daysAgo(365);
-    const maxStr = formatDateISO(maxDate);
-    dateInput.max = maxStr;
-    dateInput.min = '2000-01-01';
-    const dObj = new Date(formatDateISO(d));
-    if (dObj > maxDate) {
-      dateInput.value = maxStr;
-    } else {
+    if (d > oneYearAgo && d <= today) {
       dateInput.value = formatDateISO(d);
+    } else {
+      dateInput.value = oneYearAgoStr;
     }
   }
 
