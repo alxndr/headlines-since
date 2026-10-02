@@ -59,6 +59,7 @@ async function main() {
     dateInput.value = formatDateISO(d);
     const max = formatDateISO(daysAgo(365));
     dateInput.max = max;
+    dateInput.min = max;
   }
 
   if (form) {
