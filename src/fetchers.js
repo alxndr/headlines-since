@@ -1,5 +1,6 @@
 import { parseRSSDate, normalizeTitle } from './utils.js';
-import { CORS_PROXY_KEY } from './config.js';
+
+const CORS_PROXY_KEY = import.meta.env.VITE_CORS_PROXY_KEY || '';
 
 const PROXIES = [
   (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
