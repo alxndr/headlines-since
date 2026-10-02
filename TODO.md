@@ -1,9 +1,12 @@
 # TODOs
 
-* [ ] adjust weights
-    * [ ] reduce recency bias to 0
+* [ ] use corsproxy.io (with API key) first, fallback to allorigins.win
 
-* [ ] add more sources
+* adjust story-ranking weights:
+    * [ ] reduce recency bias to 0
+    * [ ] review other weights
+
+* add more sources
     * [ ] Mother Jones
     * [ ] Vox
     * [ ] The Nation
