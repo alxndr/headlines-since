@@ -29,33 +29,18 @@ jobs:
       - name: Install Elm
         run: npm install -g elm@0.19.1-5
 
-      - name: Setup Racket
-        uses: Bogdanp/setup-racket@v1.13
-        with:
-          architecture: 'x64'
-          distribution: 'full'
-          version: '8.18'
-
-      - name: Install Pollen
-        run: raco pkg install --auto pollen
-
-      - name: Build with Pollen (optional)
-        run: raco pollen render src || true
-
       - name: Build Elm
-        run: elm make src/Headlines.elm --output build/js/elm.js
+        run: elm make src/Main.elm --output build/js/elm.js
 
       - name: Create config
-        run: echo "export const CORS_PROXY_KEY='${{ secrets.CORS_PROXY_KEY }}';" > src/js/config.js
+        run: echo "export const CORS_PROXY_KEY='${{ secrets.CORS_PROXY_KEY }}';" > src/JS/config.js
 
       - name: Assemble build directory
         run: |
           mkdir -p build/js
-          cp build/js/elm.js build/js/elm.js 2>/dev/null || true
-          cp src/elm-app.js build/js/elm-app.js 2>/dev/null || true
-          cp src/styles.css.pp build/styles.css 2>/dev/null || true
-          cp src/index-elm.html build/index.html 2>/dev/null || true
-          cp -r src/js/* build/js/ 2>/dev/null || true
+          cp src/index.html build/
+          cp src/styles.css build/
+          cp -r src/JS/* build/js/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

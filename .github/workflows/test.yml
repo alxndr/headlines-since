@@ -12,18 +12,3 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Racket
-        uses: Bogdanp/setup-racket@v1.13
-        with:
-          distribution: 'full'
-          version: '8.18'
-
-      - name: Create config
-        run: echo "export const CORS_PROXY_KEY='';" > src/js/config.js
-
-      - name: Install Pollen
-        run: raco pkg install --auto pollen
-
-      - name: Run Racket tests
-        run: raco test test/ranker-test.rkt
