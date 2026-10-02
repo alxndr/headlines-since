@@ -26,21 +26,14 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Elm
-        run: npm install -g elm@0.19.1-5
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Build Elm
-        run: elm make src/Main.elm --output build/js/elm.js
+      - name: Create .env file
+        run: echo "VITE_CORSPROXY_API_KEY=${{ secrets.CORS_PROXY_KEY }}" > .env
 
-      - name: Create config
-        run: echo "export const CORS_PROXY_KEY='${{ secrets.CORS_PROXY_KEY }}';" > src/JS/config.js
-
-      - name: Assemble build directory
-        run: |
-          mkdir -p build/js
-          cp src/index.html build/
-          cp src/styles.css build/
-          cp -r src/JS/* build/js/
+      - name: Build
+        run: npm run build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

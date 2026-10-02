@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "elm make src/Main.elm --output build/js/elm.js && mkdir -p build && cp src/index.html build/ && cp src/styles.css build/ && cp -r src/JS/* build/js/",
+    "build": "vite build",
     "preview": "vite preview",
     "elm:make": "elm make src/Main.elm --output build/js/elm.js"
   },
