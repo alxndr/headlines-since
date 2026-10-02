@@ -29,11 +29,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Create .env file
-        run: echo "VITE_CORSPROXY_API_KEY=${{ secrets.CORS_PROXY_KEY }}" > .env
-
       - name: Build
         run: npm run build
+        env:
+          # Vite exposes VITE_* environment variables to the app, the same
+          # way it reads them from a local .env file.
+          VITE_CORSPROXY_API_KEY: ${{ secrets.VITE_CORSPROXY_API_KEY }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

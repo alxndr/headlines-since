@@ -27,7 +27,9 @@ For local development, copy the example file and fill in your key:
 cp .env.example .env
 ```
 
-For CI deployment, set `CORS_PROXY_KEY` as a GitHub repository secret; the deploy workflow writes it into `.env` before building.
+For CI deployment, set the same name, `VITE_CORSPROXY_API_KEY`, as a GitHub repository secret; the deploy workflow passes it to the build as an environment variable. corsproxy.io also needs the deployed site's domain (`alxndr.github.io`) allowed in its dashboard.
+
+The key ends up in the public JavaScript bundle, as any key used from the browser must; corsproxy.io's domain allowlist is what stops others from using it.
 
 ## Development
 
@@ -83,7 +85,7 @@ mise exec -- npm run dev
 
 ## Deployment
 
-GitHub Actions workflow (`.github/workflows/deploy.yml`) builds the app with Vite and deploys to GitHub Pages on push to `main`. The build step generates `src/config.js` from the `CORS_PROXY_KEY` secret. Enable Pages in repo settings (source: GitHub Actions).
+GitHub Actions workflow (`.github/workflows/deploy.yml`) builds the app with Vite and deploys to GitHub Pages on push to `main`. The build step reads the corsproxy.io key from the `VITE_CORSPROXY_API_KEY` secret. Enable Pages in repo settings (source: GitHub Actions).
 
 ## Code layout
 
