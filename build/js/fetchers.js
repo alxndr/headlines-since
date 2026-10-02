@@ -1,8 +1,10 @@
 import { parseRSSDate, normalizeTitle } from './utils.js';
 
+const CORS_PROXY_KEY = '792ef41d';
+
 const PROXIES = [
   (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-  (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}&api-key=${CORS_PROXY_KEY}`,
 ];
 
 const RSS_SOURCES = [
@@ -18,6 +20,9 @@ export async function fetchWithProxy(url) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
       if (!text || text.trim().length === 0) throw new Error('Empty response');
+      if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+        throw new Error('Got HTML instead of XML');
+      }
       return text;
     } catch (e) {
       lastErr = e;
@@ -29,6 +34,8 @@ export async function fetchWithProxy(url) {
 export function parseRSS(xml) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'application/xml');
+  const parseError = doc.querySelector('parsererror');
+  if (parseError) return [];
   const items = Array.from(doc.querySelectorAll('item'));
   return items.map((it) => {
     const title = it.querySelector('title')?.textContent || '';
