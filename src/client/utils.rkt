@@ -8,8 +8,10 @@
 
 (define (format-date-iso d)
   (string-append
-   (number->string (.getFullYear d)) "-"
-   (pad2 (+ 1 (.getMonth d))) "-"
+   (number->string (.getFullYear d))
+   "-"
+   (pad2 (+ 1 (.getMonth d)))
+   "-"
    (pad2 (.getDate d))))
 
 (define (days-ago n)
@@ -21,24 +23,24 @@
   (if (or (not s) (= (string-length s) 0))
       #f
       (let ([d (new Date s)])
-        (if (js-isNaN (.getTime d)) #f d))))
+        (if (js/isNaN (.getTime d)) #f d))))
 
 (define (normalize-title t)
   (if (not t)
       ""
-      (let* ([no-tags (t.replace #rx"<[^>]+>" "")]
-             [collapsed (no-tags.replace #rx"\s+" " ")])
+      (let* ([no-tags (t.replace (js/RegExp. "<[^>]+>" "g") "")]
+             [collapsed (no-tags.replace (js/RegExp. "\\s+" "g") " ")])
         (.trim collapsed))))
 
 (define (tokenize-low t)
-  (let ([m (t.match #rx"[A-Za-z0-9']{3,}")])
+  (let ([m (.match t (js/RegExp. "[A-Za-z0-9']{3,}" "g"))])
     (if (not m) '() (array->list m))))
 
 (define (jaccard-tokens a b)
-  (let ([A (list->set (tokenize-low (string-downcase (or a "")))))]
-       [B (list->set (tokenize-low (string-downcase (or b ""))))]))
-  (if (and (set-empty? A) (set-empty? B))
-      0
-      (let ([inter (set-intersect A B)]
-            [union (set-union A B)])
-        (/ (set-count inter) (set-count union)))))
+  (let ([A (list->set (tokenize-low (string-downcase (or a ""))))]
+        [B (list->set (tokenize-low (string-downcase (or b ""))))])
+    (if (and (set-empty? A) (set-empty? B))
+        0
+        (let ([inter (set-intersect A B)]
+              [union (set-union A B)])
+          (/ (set-count inter) (set-count union))))))
