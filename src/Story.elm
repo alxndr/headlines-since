@@ -1,4 +1,4 @@
-module Story exposing (PublishedAt(..), Story, publishedDate, publishedPosix)
+module Story exposing (PublishedAt(..), Story, publishedDate)
 
 import Date exposing (Date)
 import Time
@@ -43,23 +43,3 @@ publishedDate zone story =
 
         DateOnly date ->
             date
-
-
-{-| A single moment for comparing ages. Date-only stories are treated as
-published at noon UTC on their date, the midpoint of the day.
--}
-publishedPosix : Story -> Time.Posix
-publishedPosix story =
-    case story.publishedAt of
-        ExactTime posix ->
-            posix
-
-        DateOnly date ->
-            let
-                millisPerDay =
-                    24 * 60 * 60 * 1000
-
-                unixEpochRataDie =
-                    Date.toRataDie (Date.fromCalendarDate 1970 Time.Jan 1)
-            in
-            Time.millisToPosix ((Date.toRataDie date - unixEpochRataDie) * millisPerDay + millisPerDay // 2)

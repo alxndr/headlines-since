@@ -114,7 +114,7 @@ type Msg
     | StartDateChanged String
     | CountChanged String
     | FormSubmitted
-    | FeedsFetched Query Time.Posix (List FeedResult)
+    | FeedsFetched Query (List FeedResult)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -168,14 +168,11 @@ updateReady msg model =
                         , startDate = query.startDate
                         , today = model.today
                         }
-                        -- Read the clock after fetching, so recency is
-                        -- measured from when the stories arrived.
-                        |> Task.andThen (\feedResults -> Task.map (\now -> ( now, feedResults )) Time.now)
-                        |> Task.perform (\( now, feedResults ) -> FeedsFetched query now feedResults)
+                        |> Task.perform (FeedsFetched query)
                     )
 
-        FeedsFetched query now feedResults ->
-            ( { model | request = rankFeedResults model.zone query now feedResults }, Cmd.none )
+        FeedsFetched query feedResults ->
+            ( { model | request = rankFeedResults model.zone query feedResults }, Cmd.none )
 
 
 validateQuery : ReadyModel -> Result String Query
@@ -198,8 +195,8 @@ validateQuery model =
                 Ok { startDate = startDate, count = clamp minCount maxCount count }
 
 
-rankFeedResults : Time.Zone -> Query -> Time.Posix -> List FeedResult -> Request
-rankFeedResults zone query now feedResults =
+rankFeedResults : Time.Zone -> Query -> List FeedResult -> Request
+rankFeedResults zone query feedResults =
     let
         loadedStories =
             List.concatMap (.stories >> Result.withDefault []) feedResults
@@ -230,7 +227,7 @@ rankFeedResults zone query now feedResults =
                 loadedStories
                     |> List.filter isOnOrAfterStartDate
                     |> Cluster.withClusterSizes
-                    |> Rank.topStories now query.count
+                    |> Rank.topStories query.count
             , failedFeeds = failedFeeds
             }
 
