@@ -71,11 +71,12 @@ proxies corsProxyKey =
         allOrigins feedUrl =
             "https://api.allorigins.win/raw?url=" ++ Url.percentEncode feedUrl
 
+        -- Format from https://corsproxy.io/docs/how-to-use/
         corsProxyIo feedUrl =
-            "https://corsproxy.io/?url="
-                ++ Url.percentEncode feedUrl
-                ++ "&api-key="
+            "https://corsproxy.io/?key="
                 ++ Url.percentEncode corsProxyKey
+                ++ "&url="
+                ++ Url.percentEncode feedUrl
     in
     if String.isEmpty corsProxyKey then
         [ allOrigins ]
