@@ -2,6 +2,8 @@
 
 Catch up on the biggest news stories that happened since a date you choose. After being away from the news (e.g. on vacation), get a small curated list of the most significant individual stories from your chosen start date to today.
 
+The code in this project was largely written by Cohere's [`north-mini-code-1.0`](https://cohere.com/blog/north-mini-code) with OpenCode.
+
 ## Goals
 
 - **Biggest individual stories**: Ranked by significance (recency, coverage/velocity, impact, soft authority). No forced topic diversification.
