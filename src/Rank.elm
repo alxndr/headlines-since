@@ -3,6 +3,8 @@ module Rank exposing (score, topStories)
 {-| Score stories by significance and pick the top ones.
 -}
 
+import Dict
+import PageViews exposing (AverageDailyViews)
 import Regex
 import Set exposing (Set)
 import Story exposing (Story)
@@ -10,10 +12,10 @@ import Story exposing (Story)
 
 {-| The highest-scoring stories, at most one per URL.
 -}
-topStories : Int -> List ( Story, Int ) -> List Story
-topStories count storiesWithClusterSizes =
-    storiesWithClusterSizes
-        |> List.map (\( story, clusterSize ) -> ( score clusterSize story, story ))
+topStories : AverageDailyViews -> Int -> List Story -> List Story
+topStories averageDailyViews count stories =
+    stories
+        |> List.map (\story -> ( score averageDailyViews story, story ))
         -- Negate to sort highest score first; List.sortBy is stable, so
         -- equal scores keep their feed order.
         |> List.sortBy (\( storyScore, _ ) -> negate storyScore)
@@ -48,24 +50,39 @@ dedupeByUrl stories =
         |> List.reverse
 
 
-{-| A weighted sum of three signals, each scaled to 0..1:
+{-| A weighted sum of four signals, each scaled to 0..1:
 
-  - coverage (weight 0.4): cluster size, maxing out at 10 similar stories
-  - impact (weight 0.2): how many impact concepts the title mentions, maxing out at 4
+  - public interest (weight 0.5): page views of the story's Wikipedia topic
+    article (see `interestScore`)
+  - impact (weight 0.25): how many impact concepts the title mentions,
+    maxing out at 4
+  - sources (weight 0.15): how many news reports Wikipedia cites, maxing out
+    at 3 (one source scores 0)
   - authority (weight 0.1): 1 if the outlet is in the authority list
+
+Sports and arts stories get half the score, because they draw far more page
+views than their significance warrants (the 2026 Asian Games had 8 times the
+views of the 2026 Iran war).
 
 There is deliberately no recency signal: when catching up after time away,
 a big story from the first day matters as much as one from today.
 
 -}
-score : Int -> Story -> Float
-score clusterSize story =
+score : AverageDailyViews -> Story -> Float
+score averageDailyViews story =
     let
-        coverage =
-            min (toFloat clusterSize / 10) 1
+        interest =
+            story.topicArticles
+                |> List.filterMap (\article -> Dict.get article averageDailyViews)
+                |> List.maximum
+                |> Maybe.map interestScore
+                |> Maybe.withDefault 0
 
         impact =
             min (toFloat (impactConceptCount story.title) / 4) 1
+
+        sources =
+            clamp 0 1 (toFloat (story.sourceCount - 1) / 2)
 
         authority =
             if Set.member story.sourceHost authoritativeHosts then
@@ -73,8 +90,34 @@ score clusterSize story =
 
             else
                 0
+
+        sectionMultiplier =
+            case story.section of
+                Just "Sports" ->
+                    0.5
+
+                Just "Arts and culture" ->
+                    0.5
+
+                _ ->
+                    1
     in
-    (coverage * 0.4) + (impact * 0.2) + (authority * 0.1)
+    sectionMultiplier * ((interest * 0.5) + (impact * 0.25) + (sources * 0.15) + (authority * 0.1))
+
+
+{-| Daily page views on a log scale, since they range from hundreds to
+millions: 1,000 a day or fewer scores 0, and about 316,000 a day (10^5.5) or
+more scores 1. For reference, in late September 2026 a minor topic got about
+1,000 a day, the 2026 Iran war about 20,000 (0.52), and the 2026 Asian Games
+about 200,000 (0.92).
+-}
+interestScore : Float -> Float
+interestScore averageDailyViews =
+    if averageDailyViews <= 0 then
+        0
+
+    else
+        clamp 0 1 ((logBase 10 averageDailyViews - 3) / 2.5)
 
 
 authoritativeHosts : Set String
@@ -144,40 +187,66 @@ startsWith prefix list =
 {-| Each inner list is one concept, written in the forms it appears in.
 Wikipedia summaries are written in the present tense ("kills") and
 headlines often in the past tense ("killed"), so both are listed.
+
+Concepts are grouped by kind of event, so that significant non-violent news
+(elections, resignations, agreements, economic shocks) can score too.
+
 -}
 impactConcepts : List (List String)
 impactConcepts =
+    -- Casualties
     [ [ "dead" ]
     , [ "kill", "kills", "killed", "killing", "killings" ]
     , [ "death", "deaths", "die", "dies", "died" ]
     , [ "injure", "injures", "injured", "injuring", "injury", "injuries" ]
+
+    -- Conflict and violence
     , [ "attack", "attacks", "attacked", "attacking" ]
     , [ "war", "wars" ]
+    , [ "invasion", "invade", "invades", "invaded" ]
     , [ "ceasefire", "ceasefires", "cease fire" ]
     , [ "bomb", "bombs", "bombed", "bombing", "bombings" ]
+    , [ "airstrike", "airstrikes", "air strike", "air strikes" ]
+    , [ "missile", "missiles" ]
+    , [ "strike", "strikes", "struck" ]
+    , [ "mass shooting", "mass shootings" ]
+    , [ "hostage", "hostages" ]
+    , [ "coup" ]
+    , [ "assassination", "assassinated" ]
+
+    -- Disasters and health
     , [ "earthquake", "earthquakes" ]
-    , [ "hurricane", "hurricanes" ]
+    , [ "hurricane", "hurricanes", "typhoon", "typhoons", "cyclone", "cyclones" ]
     , [ "storm", "storms" ]
     , [ "flood", "floods", "flooded", "flooding" ]
-    , [ "election", "elections" ]
-    , [ "vote", "votes", "voted", "voting" ]
-    , [ "court", "courts", "supreme court" ]
-    , [ "ruling", "rulings", "ruled" ]
-    , [ "law", "laws" ]
-    , [ "bill", "bills" ]
-    , [ "pass", "passes", "passed" ]
-    , [ "sanction", "sanctions", "sanctioned" ]
-    , [ "market", "markets" ]
-    , [ "crash", "crashes", "crashed" ]
-    , [ "recession" ]
-    , [ "inflation" ]
-    , [ "rate hike", "rate hikes" ]
-    , [ "strike", "strikes", "struck" ]
-    , [ "unrest" ]
-    , [ "protest", "protests", "protested", "protesters" ]
-    , [ "mass shooting", "mass shootings" ]
+    , [ "wildfire", "wildfires" ]
     , [ "tornado", "tornadoes" ]
     , [ "tsunami", "tsunamis" ]
+    , [ "crash", "crashes", "crashed" ]
     , [ "outbreak", "outbreaks" ]
-    , [ "pandemic" ]
+    , [ "pandemic", "epidemic" ]
+    , [ "state of emergency" ]
+
+    -- Politics and law
+    , [ "election", "elections", "referendum" ]
+    , [ "vote", "votes", "voted", "voting" ]
+    , [ "resign", "resigns", "resigned", "resignation" ]
+    , [ "impeach", "impeached", "impeachment" ]
+    , [ "court", "courts", "supreme court" ]
+    , [ "ruling", "rulings", "ruled" ]
+    , [ "convicted", "sentenced", "indicted" ]
+    , [ "law", "laws" ]
+    , [ "unrest" ]
+    , [ "protest", "protests", "protested", "protesters" ]
+
+    -- International relations
+    , [ "agreement", "agreements", "deal", "deals", "treaty", "accord" ]
+    , [ "summit" ]
+    , [ "sanction", "sanctions", "sanctioned" ]
+
+    -- Economy
+    , [ "recession" ]
+    , [ "inflation" ]
+    , [ "interest rate", "interest rates", "rate hike", "rate hikes", "rate cut", "rate cuts" ]
+    , [ "tariff", "tariffs" ]
     ]

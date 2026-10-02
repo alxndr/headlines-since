@@ -39,7 +39,24 @@ type alias Citation =
 -}
 type alias Heading =
     { depth : Int
-    , topics : List String
+    , topics : List Topic
+    }
+
+
+{-| `article` is the Wikipedia article a topic links to, if it links to
+one; it can differ from the displayed `name`, as in
+"[[Sudanese civil war (2023–present)|Sudanese civil war]]".
+-}
+type alias Topic =
+    { name : String
+    , article : Maybe String
+    }
+
+
+type alias ParseState =
+    { section : Maybe String
+    , headings : List Heading
+    , stories : List Story
     }
 
 
@@ -49,7 +66,7 @@ parse date wikitext =
         |> newsItemsSection
         |> Regex.replace htmlComment (\_ -> "")
         |> String.lines
-        |> List.foldl (parseLine date) { headings = [], stories = [] }
+        |> List.foldl (parseLine date) { section = Nothing, headings = [], stories = [] }
         |> .stories
         |> List.reverse
 
@@ -81,7 +98,7 @@ newsItemsSection wikitext =
             afterStart
 
 
-parseLine : Date -> String -> { headings : List Heading, stories : List Story } -> { headings : List Heading, stories : List Story }
+parseLine : Date -> String -> ParseState -> ParseState
 parseLine date line state =
     let
         trimmedLine =
@@ -94,12 +111,17 @@ parseLine date line state =
             String.trim (dropLeadingBullets trimmedLine)
     in
     if depth == 0 then
-        -- A non-bullet line, e.g. a '''Category''' heading, ends every topic.
-        if String.isEmpty trimmedLine then
-            state
+        -- A non-bullet line, e.g. a '''Section''' heading, ends every topic.
+        case Regex.find sectionHeading trimmedLine of
+            [ { submatches } ] ->
+                { state | section = List.head submatches |> Maybe.andThen identity, headings = [] }
 
-        else
-            { state | headings = [] }
+            _ ->
+                if String.isEmpty trimmedLine then
+                    state
+
+                else
+                    { state | headings = [] }
 
     else
         let
@@ -124,7 +146,15 @@ parseLine date line state =
                         , sourceName = "Wikipedia, citing " ++ String.join ", " (List.map .label citations)
                         , sourceHost = hostOf firstCitation.url
                         , publishedAt = Story.DateOnly date
-                        , topics = List.concatMap .topics enclosingHeadings
+                        , topics = List.concatMap (.topics >> List.map .name) enclosingHeadings
+                        , topicArticles =
+                            enclosingHeadings
+                                |> List.reverse
+                                |> List.head
+                                |> Maybe.map (.topics >> List.filterMap .article)
+                                |> Maybe.withDefault []
+                        , section = state.section
+                        , sourceCount = List.length citations
                         }
                             :: state.stories
                 }
@@ -142,14 +172,40 @@ dropLeadingBullets text =
 {-| A heading like "[[A]], [[B]]" names two topics. A heading without wiki
 links is used as-is.
 -}
-headingTopics : String -> List String
+headingTopics : String -> List Topic
 headingTopics content =
     case Regex.find wikiLink content of
         [] ->
-            [ toPlainText content ]
+            [ { name = toPlainText content, article = Nothing } ]
 
         links ->
-            List.filterMap (.submatches >> wikiLinkText) links
+            List.filterMap
+                (\link ->
+                    Maybe.map (\name -> { name = name, article = wikiLinkArticle link.submatches })
+                        (wikiLinkText link.submatches)
+                )
+                links
+
+
+{-| The article a wiki link points to, without any "#Section" anchor.
+-}
+wikiLinkArticle : List (Maybe String) -> Maybe String
+wikiLinkArticle submatches =
+    case submatches of
+        (Just target) :: _ ->
+            case String.split "#" target of
+                article :: _ ->
+                    if String.isEmpty (String.trim article) then
+                        Nothing
+
+                    else
+                        Just (String.trim article)
+
+                [] ->
+                    Nothing
+
+        _ ->
+            Nothing
 
 
 toCitation : Regex.Match -> Maybe Citation
@@ -272,6 +328,13 @@ externalLink =
 template : Regex
 template =
     regex "\\{\\{[^{}]*\\}\\}"
+
+
+{-| A line that is entirely bold, like `'''Sports'''`.
+-}
+sectionHeading : Regex
+sectionHeading =
+    regex "^'''([^']+)'''$"
 
 
 htmlComment : Regex

@@ -12,6 +12,7 @@ module Feeds exposing (FeedResult, fetchAll)
 import Date exposing (Date)
 import Http
 import Json.Decode as Decode
+import List.Extra
 import Rss
 import Story exposing (Story)
 import Task exposing (Task)
@@ -170,7 +171,7 @@ fetchWikipedia : Date -> Date -> Task Never FeedResult
 fetchWikipedia startDate today =
     -- Date.range excludes its end date, so end the day after today.
     Date.range Date.Day 1 startDate (Date.add Date.Days 1 today)
-        |> chunksOf wikipediaPagesPerRequest
+        |> List.Extra.greedyGroupsOf wikipediaPagesPerRequest
         |> List.map fetchWikipediaDays
         |> Task.sequence
         |> Task.map (List.concat >> Ok)
@@ -202,8 +203,8 @@ fetchWikipediaDays dates =
                 ]
 
         storiesFromPage page =
-            case ( page.content, lookup page.title datesByTitle ) of
-                ( Just wikitext, Just date ) ->
+            case ( page.content, List.Extra.find (Tuple.first >> (==) page.title) datesByTitle ) of
+                ( Just wikitext, Just ( _, date ) ) ->
                     WikipediaCurrentEvents.parse date wikitext
 
                 _ ->
@@ -232,21 +233,3 @@ wikipediaPagesDecoder =
                 )
             )
         )
-
-
-lookup : comparable -> List ( comparable, value ) -> Maybe value
-lookup key pairs =
-    pairs
-        |> List.filter (\( pairKey, _ ) -> pairKey == key)
-        |> List.head
-        |> Maybe.map Tuple.second
-
-
-chunksOf : Int -> List a -> List (List a)
-chunksOf size items =
-    case items of
-        [] ->
-            []
-
-        _ ->
-            List.take size items :: chunksOf size (List.drop size items)

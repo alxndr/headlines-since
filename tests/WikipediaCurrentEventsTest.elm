@@ -24,7 +24,7 @@ dayPage =
 *[[2026 Iran war]]
 **[[2026 Strait of Hormuz crisis]]
 ***The [[Islamic Republic News Agency|IRNA]] reports that [[Iran]]'s [[Islamic Revolutionary Guard Corps]] has [[List of ships attacked during the 2026 Iran war|hit]] the [[Togo]]-[[Flag state|flagged]] [[oil tanker]] ''Trend''. [https://www.freemalaysiatoday.com/category/world/2026/09/18/iran (AFP via ''FMT'')] [https://www.aljazeera.com/news/liveblog/2026/9/18/iran-war-live (Al Jazeera)]
-*[[Mali War]]
+*[[Mali War (2012–present)|Mali War]]
 **At least 100 [[Malian Armed Forces|Malian soldiers]] are reported killed. [https://www.arabnews.com/world/mali (AFP via ''Arab News'')]
 
 '''Law and crime'''
@@ -74,6 +74,19 @@ suite =
                             , "Wikipedia, citing AFP via FMT, Al Jazeera"
                             )
                         )
+        , test "each event records its section, innermost topic articles, and source count" <|
+            \_ ->
+                WikipediaCurrentEvents.parse september18 dayPage
+                    |> List.map (\story -> ( story.section, story.topicArticles, story.sourceCount ))
+                    |> Expect.equal
+                        [ ( Just "Armed conflicts and attacks", [ "2026 Strait of Hormuz crisis" ], 2 )
+                        , ( Just "Armed conflicts and attacks", [ "Mali War (2012–present)" ], 1 )
+                        , ( Just "Law and crime", [], 1 )
+                        , ( Just "International relations"
+                          , [ "International sanctions during the Russian invasion of Ukraine", "United States sanctions against Iran" ]
+                          , 1
+                          )
+                        ]
         , test "events are dated by their page" <|
             \_ ->
                 WikipediaCurrentEvents.parse september18 dayPage

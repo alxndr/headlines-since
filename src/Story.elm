@@ -8,11 +8,17 @@ import Time
 Wikipedia's Current Events portal.
 
 `sourceHost` is the hostname of the outlet that published the story (e.g.
-"nbcnews.com"). It is kept separate from `url` because Google News links all
-point at news.google.com redirects, which would hide the real outlet.
+"nbcnews.com"), used to recognise major outlets.
 
-`topics` names the ongoing stories an item belongs to (e.g. "2026 Iran
-war"). Only Wikipedia provides these; RSS items have none.
+The remaining fields only carry information for Wikipedia events; RSS
+items have no topics or section, and count as one source:
+
+  - `topics`: the ongoing stories an event is filed under, outermost first
+    (e.g. "2026 Iran war", then "2026 Strait of Hormuz crisis")
+  - `topicArticles`: the Wikipedia article titles of the innermost of those
+    topics, whose page views measure public interest in the story
+  - `section`: the portal's section heading, e.g. "Sports"
+  - `sourceCount`: how many news reports the event cites
 
 -}
 type alias Story =
@@ -22,6 +28,9 @@ type alias Story =
     , sourceHost : String
     , publishedAt : PublishedAt
     , topics : List String
+    , topicArticles : List String
+    , section : Maybe String
+    , sourceCount : Int
     }
 
 

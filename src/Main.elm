@@ -1,12 +1,13 @@
 module Main exposing (main)
 
 import Browser
-import Cluster
 import Date exposing (Date)
+import Dict
 import Feeds exposing (FeedResult)
 import Html exposing (Html, article, button, div, h1, h3, input, label, p, section, text)
 import Html.Attributes as Attr exposing (attribute, class, disabled, for, href, id, name, rel, required, target, type_, value)
 import Html.Events exposing (onInput, onSubmit)
+import PageViews exposing (AverageDailyViews)
 import Rank
 import Story exposing (Story)
 import Task
@@ -62,7 +63,7 @@ type Request
     | Failed String
     | Loaded
         { stories : List Story
-        , failedFeeds : List ( String, String )
+        , warnings : List String
         }
 
 
@@ -114,7 +115,7 @@ type Msg
     | StartDateChanged String
     | CountChanged String
     | FormSubmitted
-    | FeedsFetched Query (List FeedResult)
+    | FeedsFetched Query (List FeedResult) (Result String AverageDailyViews)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -168,11 +169,20 @@ updateReady msg model =
                         , startDate = query.startDate
                         , today = model.today
                         }
-                        |> Task.perform (FeedsFetched query)
+                        |> Task.andThen
+                            (\feedResults ->
+                                PageViews.fetch
+                                    { startDate = query.startDate, today = model.today }
+                                    (topicArticlesByEventCount feedResults)
+                                    |> Task.map Ok
+                                    |> Task.onError (Err >> Task.succeed)
+                                    |> Task.map (FeedsFetched query feedResults)
+                            )
+                        |> Task.perform identity
                     )
 
-        FeedsFetched query feedResults ->
-            ( { model | request = rankFeedResults model.zone query feedResults }, Cmd.none )
+        FeedsFetched query feedResults pageViews ->
+            ( { model | request = rankFeedResults model.zone query feedResults pageViews }, Cmd.none )
 
 
 validateQuery : ReadyModel -> Result String Query
@@ -195,8 +205,22 @@ validateQuery model =
                 Ok { startDate = startDate, count = clamp minCount maxCount count }
 
 
-rankFeedResults : Time.Zone -> Query -> List FeedResult -> Request
-rankFeedResults zone query feedResults =
+{-| The articles to look up page views for, most frequently cited first,
+since for old date ranges only the first few are looked up.
+-}
+topicArticlesByEventCount : List FeedResult -> List String
+topicArticlesByEventCount feedResults =
+    feedResults
+        |> List.concatMap (.stories >> Result.withDefault [])
+        |> List.concatMap .topicArticles
+        |> List.foldl (\article -> Dict.update article (Maybe.withDefault 0 >> (+) 1 >> Just)) Dict.empty
+        |> Dict.toList
+        |> List.sortBy (\( _, eventCount ) -> negate eventCount)
+        |> List.map Tuple.first
+
+
+rankFeedResults : Time.Zone -> Query -> List FeedResult -> Result String AverageDailyViews -> Request
+rankFeedResults zone query feedResults pageViews =
     let
         loadedStories =
             List.concatMap (.stories >> Result.withDefault []) feedResults
@@ -226,9 +250,21 @@ rankFeedResults zone query feedResults =
             { stories =
                 loadedStories
                     |> List.filter isOnOrAfterStartDate
-                    |> Cluster.withClusterSizes
-                    |> Rank.topStories query.count
-            , failedFeeds = failedFeeds
+                    |> Rank.topStories (Result.withDefault Dict.empty pageViews) query.count
+            , warnings =
+                List.filterMap identity
+                    [ if List.isEmpty failedFeeds then
+                        Nothing
+
+                      else
+                        Just ("Some feeds couldn't be loaded, so results may be incomplete. " ++ describeFailedFeeds failedFeeds)
+                    , case pageViews of
+                        Ok _ ->
+                            Nothing
+
+                        Err problem ->
+                            Just ("Couldn't load Wikipedia page views (" ++ problem ++ "), so stories are ranked without them.")
+                    ]
             }
 
 
@@ -338,13 +374,12 @@ viewProblems request =
         Failed problem ->
             div [ class "error" ] [ text problem ]
 
-        Loaded { failedFeeds } ->
-            if List.isEmpty failedFeeds then
+        Loaded { warnings } ->
+            if List.isEmpty warnings then
                 text ""
 
             else
-                div [ class "warning" ]
-                    [ text ("Some feeds couldn't be loaded, so results may be incomplete. " ++ describeFailedFeeds failedFeeds) ]
+                div [ class "warning" ] (List.map (\warning -> p [] [ text warning ]) warnings)
 
         _ ->
             text ""

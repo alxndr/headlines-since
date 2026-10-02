@@ -86,6 +86,9 @@ toStory rawTitle rawLink publishedAt source =
     , sourceHost = sourceHost
     , publishedAt = Story.ExactTime publishedAt
     , topics = []
+    , topicArticles = []
+    , section = Nothing
+    , sourceCount = 1
     }
 
 

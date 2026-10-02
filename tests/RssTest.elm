@@ -51,6 +51,9 @@ suite =
                               , sourceHost = "nbcnews.com"
                               , publishedAt = Story.ExactTime (Time.millisToPosix 1790971708000)
                               , topics = []
+                              , topicArticles = []
+                              , section = Nothing
+                              , sourceCount = 1
                               }
                             ]
                         )
@@ -65,6 +68,9 @@ suite =
                               , sourceHost = "bbc.co.uk"
                               , publishedAt = Story.ExactTime (Time.millisToPosix 1790970005000)
                               , topics = []
+                              , topicArticles = []
+                              , section = Nothing
+                              , sourceCount = 1
                               }
                             ]
                         )
