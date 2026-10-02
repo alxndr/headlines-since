@@ -1,2 +1,5 @@
+build/
+node_modules/
+elm-stuff/
 .env
-src/js/config.js
+src/JS/config.js

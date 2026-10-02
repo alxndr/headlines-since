@@ -1,4 +1,4 @@
-port module Headlines exposing (main)
+port module Main exposing (main)
 
 import Browser
 import Html exposing (Html, article, button, div, form, h1, h3, input, label, p, section, text)
