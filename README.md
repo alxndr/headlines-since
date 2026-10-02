@@ -5,37 +5,41 @@ Catch up on the biggest news stories that happened since a date you choose. Afte
 ## Goals
 
 - **Biggest individual stories**: Ranked by significance (recency, coverage/velocity, impact, soft authority). No forced topic diversification.
-- **Static SSR/SSG**: Built with Racket/Pollen, deployed as static HTML/CSS/JS to GitHub Pages (no backend).
+- **Elm frontend**: Clean, simple UI built with [Elm](https://elm-lang.org/) talking to JS via ports.
 - **Client-side data**: Fetches headlines from RSS feeds in the browser via CORS proxies.
-- **Bulk in Racket**: Templates and build in Racket (Pollen). Client logic is written in vanilla JS.
+- **Pure static**: Deployed as static HTML/CSS/JS to GitHub Pages (no backend).
 
 ## Data Sources
 
 - Google News RSS
 - BBC News RSS
 
-Fetched client-side through CORS proxies. The CORS proxy API key is injected at build time via a generated config file (`src/js/config.js`), not committed to the repo.
+Fetched client-side through CORS proxies. The CORS proxy API key is injected at build time via a generated config file (`src/JS/config.js`), not committed to the repo.
 
 ## Configuration
 
 For local development, copy the example config:
 ```bash
-cp src/js/config.example.js src/js/config.js
+cp src/JS/config.example.js src/JS/config.js
 ```
 
-Edit `src/js/config.js` with your CORS proxy API key if needed. For CI deployment, set `CORS_PROXY_KEY` as a GitHub repository secret.
+Edit `src/JS/config.js` with your CORS proxy API key if needed. For CI deployment, set `CORS_PROXY_KEY` as a GitHub repository secret.
 
 ## Development
 
-Prerequisites: [Racket](https://racket-lang.org/) 8.18+, [Pollen](https://docs.racket-lang.org/pollen/).
+Prerequisites: [Elm](https://elm-lang.org/) 0.19.1.
 
-With [mise](https://mise.jdx.dev/):
-
+Build the Elm app:
 ```bash
-mise install
-mise exec -- raco pollen render src
-cp src/js/config.example.js src/js/config.js  # or add your key
-cp src/index.html src/styles.css build/ 2>/dev/null; cp -r src/js build/
+elm make src/Main.elm --output build/js/elm.js
+```
+
+Copy static assets:
+```bash
+mkdir -p build/js
+cp src/index.html build/index.html
+cp src/styles.css build/styles.css
+cp -r src/JS/* build/js/
 ```
 
 Then serve `build/` locally:
@@ -47,7 +51,7 @@ Visit http://localhost:8000.
 
 ## Deployment
 
-GitHub Actions workflows (`.github/workflows/deploy.yml`, `.github/workflows/test.yml`) build and deploy to GitHub Pages on push to `main`. The build step generates `src/js/config.js` from the `CORS_PROXY_KEY` secret. Enable Pages in repo settings (source: GitHub Actions).
+GitHub Actions workflow (`.github/workflows/deploy.yml`) builds the Elm app and deploys to GitHub Pages on push to `main`. The build step generates `src/JS/config.js` from the `CORS_PROXY_KEY` secret. Enable Pages in repo settings (source: GitHub Actions).
 
 ## Algorithm
 
