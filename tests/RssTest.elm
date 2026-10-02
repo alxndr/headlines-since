@@ -2,6 +2,7 @@ module RssTest exposing (suite)
 
 import Expect
 import Rss
+import Story
 import Test exposing (Test, describe, test)
 import Time
 
@@ -48,7 +49,8 @@ suite =
                               , url = "https://news.google.com/rss/articles/CBMitAFBVV95?oc=5"
                               , sourceName = "NBC News"
                               , sourceHost = "nbcnews.com"
-                              , publishedAt = Time.millisToPosix 1790971708000
+                              , publishedAt = Story.ExactTime (Time.millisToPosix 1790971708000)
+                              , topics = []
                               }
                             ]
                         )
@@ -61,7 +63,8 @@ suite =
                               , url = "https://www.bbc.co.uk/news/articles/cv1j3lgrl6gko?at_medium=RSS&at_campaign=rss"
                               , sourceName = "bbc.co.uk"
                               , sourceHost = "bbc.co.uk"
-                              , publishedAt = Time.millisToPosix 1790970005000
+                              , publishedAt = Story.ExactTime (Time.millisToPosix 1790970005000)
+                              , topics = []
                               }
                             ]
                         )

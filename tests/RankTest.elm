@@ -23,7 +23,8 @@ baseStory =
     , url = "https://example.com/bakery"
     , sourceName = "Example"
     , sourceHost = "example.com"
-    , publishedAt = now
+    , publishedAt = Story.ExactTime now
+    , topics = []
     }
 
 
@@ -37,7 +38,7 @@ suite =
                         |> Expect.within (Expect.Absolute 0.0001) 0.3
             , test "recency falls to 1/e after three days" <|
                 \_ ->
-                    Rank.score now 0 { baseStory | publishedAt = hoursBeforeNow 72 }
+                    Rank.score now 0 { baseStory | publishedAt = Story.ExactTime (hoursBeforeNow 72) }
                         |> Expect.within (Expect.Absolute 0.0001) (0.3 / e)
             , test "coverage maxes out at 10 similar stories" <|
                 \_ ->

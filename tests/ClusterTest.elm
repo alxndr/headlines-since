@@ -14,7 +14,8 @@ storyTitled title =
     , url = "https://example.com/" ++ title
     , sourceName = "Example"
     , sourceHost = "example.com"
-    , publishedAt = Time.millisToPosix 0
+    , publishedAt = Story.ExactTime (Time.millisToPosix 0)
+    , topics = []
     }
 
 

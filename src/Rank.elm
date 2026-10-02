@@ -60,7 +60,7 @@ score : Time.Posix -> Int -> Story -> Float
 score now clusterSize story =
     let
         hoursOld =
-            toFloat (Time.posixToMillis now - Time.posixToMillis story.publishedAt)
+            toFloat (Time.posixToMillis now - Time.posixToMillis (Story.publishedPosix story))
                 / (1000 * 60 * 60)
                 |> max 0
 

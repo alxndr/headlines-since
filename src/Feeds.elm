@@ -1,14 +1,23 @@
 module Feeds exposing (FeedResult, fetchAll)
 
-{-| Download and parse every RSS feed, via CORS proxies (the feeds don't
-allow direct cross-origin requests from a browser).
+{-| Download and parse every news source:
+
+  - RSS feeds, via CORS proxies (the feeds don't allow direct cross-origin
+    requests from a browser). These only cover the last day or two.
+  - Wikipedia's Current Events portal, which the browser can fetch directly,
+    and which covers any date range.
+
 -}
 
+import Date exposing (Date)
 import Http
+import Json.Decode as Decode
 import Rss
 import Story exposing (Story)
 import Task exposing (Task)
 import Url
+import Url.Builder
+import WikipediaCurrentEvents
 
 
 type alias Feed =
@@ -26,20 +35,23 @@ type alias FeedResult =
     }
 
 
-feeds : List Feed
-feeds =
-    [ { name = "Google News", url = "https://news.google.com/rss" }
-    , { name = "BBC News", url = "https://feeds.bbci.co.uk/news/rss.xml" }
+{-| Google News (<https://news.google.com/rss>) is deliberately absent: Google
+answers requests from CORS proxies with a "Sorry..." block page (HTTP 503).
+-}
+rssFeeds : List Feed
+rssFeeds =
+    [ { name = "BBC News", url = "https://feeds.bbci.co.uk/news/rss.xml" }
     ]
 
 
-{-| Fetches the feeds one after another. The task can't fail; failures are
-reported per feed in the results.
+{-| Fetches the sources one after another. The task can't fail; failures
+are reported per source in the results.
 -}
-fetchAll : String -> Task Never (List FeedResult)
-fetchAll corsProxyKey =
-    feeds
-        |> List.map (fetchFeed (proxies corsProxyKey))
+fetchAll : { corsProxyKey : String, startDate : Date, today : Date } -> Task Never (List FeedResult)
+fetchAll { corsProxyKey, startDate, today } =
+    (fetchWikipedia startDate today
+        :: List.map (fetchFeed (proxies corsProxyKey)) rssFeeds
+    )
         |> Task.sequence
 
 
@@ -141,3 +153,100 @@ checkResponse response =
 
             else
                 Ok body
+
+
+
+-- WIKIPEDIA
+
+
+{-| The Wikipedia API returns at most 50 pages per request.
+-}
+wikipediaPagesPerRequest : Int
+wikipediaPagesPerRequest =
+    50
+
+
+fetchWikipedia : Date -> Date -> Task Never FeedResult
+fetchWikipedia startDate today =
+    -- Date.range excludes its end date, so end the day after today.
+    Date.range Date.Day 1 startDate (Date.add Date.Days 1 today)
+        |> chunksOf wikipediaPagesPerRequest
+        |> List.map fetchWikipediaDays
+        |> Task.sequence
+        |> Task.map (List.concat >> Ok)
+        |> Task.onError (Err >> Task.succeed)
+        |> Task.map (\stories -> { feedName = "Wikipedia Current Events", stories = stories })
+
+
+{-| Days without a page yet (typically today, early on) are skipped.
+-}
+fetchWikipediaDays : List Date -> Task String (List Story)
+fetchWikipediaDays dates =
+    let
+        datesByTitle =
+            List.map (\date -> ( WikipediaCurrentEvents.pageTitle date, date )) dates
+
+        url =
+            Url.Builder.crossOrigin "https://en.wikipedia.org"
+                [ "w", "api.php" ]
+                [ Url.Builder.string "action" "query"
+                , Url.Builder.string "prop" "revisions"
+                , Url.Builder.string "rvprop" "content"
+                , Url.Builder.string "rvslots" "main"
+                , Url.Builder.string "titles" (String.join "|" (List.map Tuple.first datesByTitle))
+                , Url.Builder.string "format" "json"
+                , Url.Builder.string "formatversion" "2"
+
+                -- Required for anonymous cross-origin requests.
+                , Url.Builder.string "origin" "*"
+                ]
+
+        storiesFromPage page =
+            case ( page.content, lookup page.title datesByTitle ) of
+                ( Just wikitext, Just date ) ->
+                    WikipediaCurrentEvents.parse date wikitext
+
+                _ ->
+                    []
+    in
+    fetchText url
+        |> Task.andThen
+            (Decode.decodeString wikipediaPagesDecoder
+                >> Result.mapError (\_ -> "unexpected response from Wikipedia")
+                >> resultToTask
+            )
+        |> Task.map (List.concatMap storiesFromPage)
+
+
+wikipediaPagesDecoder : Decode.Decoder (List { title : String, content : Maybe String })
+wikipediaPagesDecoder =
+    Decode.at [ "query", "pages" ]
+        (Decode.list
+            (Decode.map2 (\title content -> { title = title, content = content })
+                (Decode.field "title" Decode.string)
+                -- Missing pages have no "revisions" field.
+                (Decode.maybe
+                    (Decode.field "revisions"
+                        (Decode.index 0 (Decode.at [ "slots", "main", "content" ] Decode.string))
+                    )
+                )
+            )
+        )
+
+
+lookup : comparable -> List ( comparable, value ) -> Maybe value
+lookup key pairs =
+    pairs
+        |> List.filter (\( pairKey, _ ) -> pairKey == key)
+        |> List.head
+        |> Maybe.map Tuple.second
+
+
+chunksOf : Int -> List a -> List (List a)
+chunksOf size items =
+    case items of
+        [] ->
+            []
+
+        _ ->
+            List.take size items :: chunksOf size (List.drop size items)

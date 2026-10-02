@@ -57,3 +57,9 @@ button {
 .warning {
   color: #8a5a00;
 }
+
+.story-topics {
+  font-size: 0.9rem;
+  font-style: italic;
+  color: #555;
+}

@@ -163,7 +163,11 @@ updateReady msg model =
 
                 Ok query ->
                     ( { model | request = Loading }
-                    , Feeds.fetchAll model.corsProxyKey
+                    , Feeds.fetchAll
+                        { corsProxyKey = model.corsProxyKey
+                        , startDate = query.startDate
+                        , today = model.today
+                        }
                         -- Read the clock after fetching, so recency is
                         -- measured from when the stories arrived.
                         |> Task.andThen (\feedResults -> Task.map (\now -> ( now, feedResults )) Time.now)
@@ -215,7 +219,7 @@ rankFeedResults zone query now feedResults =
         -- Compare calendar dates in the user's time zone, so "since
         -- Monday" includes everything published on their Monday.
         isOnOrAfterStartDate story =
-            Date.compare (Date.fromPosix zone story.publishedAt) query.startDate /= LT
+            Date.compare (Story.publishedDate zone story) query.startDate /= LT
     in
     if List.length failedFeeds == List.length feedResults then
         Failed ("Couldn't load any news feeds. " ++ describeFailedFeeds failedFeeds)
@@ -362,21 +366,35 @@ viewStory zone story =
     article [ class "story" ]
         [ h3 []
             [ Html.a [ href story.url, target "_blank", rel "noopener noreferrer" ] [ text story.title ] ]
+        , if List.isEmpty story.topics then
+            text ""
+
+          else
+            div [ class "story-topics" ] [ text (String.join " › " story.topics) ]
         , div [ class "story-meta" ]
-            [ text (sourcePrefix ++ formatDateTime zone story.publishedAt) ]
+            [ text (sourcePrefix ++ formatPublishedAt zone story.publishedAt) ]
         ]
 
 
-{-| e.g. "Fri 2 Oct 2026, 19:40" in the user's time zone.
+{-| e.g. "Fri 2 Oct 2026, 19:40" in the user's time zone, or just
+"Fri 2 Oct 2026" for date-only stories.
 -}
-formatDateTime : Time.Zone -> Time.Posix -> String
-formatDateTime zone posix =
+formatPublishedAt : Time.Zone -> Story.PublishedAt -> String
+formatPublishedAt zone publishedAt =
     let
         twoDigits number =
             String.padLeft 2 '0' (String.fromInt number)
+
+        dateFormat =
+            "EEE d MMM y"
     in
-    Date.format "EEE d MMM y" (Date.fromPosix zone posix)
-        ++ ", "
-        ++ twoDigits (Time.toHour zone posix)
-        ++ ":"
-        ++ twoDigits (Time.toMinute zone posix)
+    case publishedAt of
+        Story.ExactTime posix ->
+            Date.format dateFormat (Date.fromPosix zone posix)
+                ++ ", "
+                ++ twoDigits (Time.toHour zone posix)
+                ++ ":"
+                ++ twoDigits (Time.toMinute zone posix)
+
+        Story.DateOnly date ->
+            Date.format dateFormat date

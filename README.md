@@ -8,15 +8,15 @@ The code in this project was bootstrapped by Cohere's [`north-mini-code-1.0`](ht
 
 - **Biggest individual stories**: Ranked by significance (recency, coverage/velocity, impact, soft authority). No forced topic diversification.
 - **Elm frontend**: Clean, simple UI and all app logic written in [Elm](https://elm-lang.org/). The only JavaScript is `src/index.js`, which starts the Elm app.
-- **Client-side data**: Fetches headlines from RSS feeds in the browser via CORS proxies.
+- **Client-side data**: Fetches news in the browser, from Wikipedia directly and from RSS feeds via CORS proxies.
 - **Pure static**: Deployed as static HTML/CSS/JS to GitHub Pages (no backend).
 
 ## Data Sources
 
-- Google News RSS
-- BBC News RSS
+- **[Wikipedia's Current Events portal](https://en.wikipedia.org/wiki/Portal:Current_events)**: an editor-curated list of each day's notable events, with citations. One page per day, so it covers any start date. Fetched directly from the Wikipedia API (no proxy needed).
+- **BBC News RSS**: fetched through CORS proxies ([allorigins.win](https://allorigins.win/), then [corsproxy.io](https://corsproxy.io/) if an API key is configured). The feed only contains roughly the last day or two of stories.
 
-Fetched client-side through CORS proxies ([allorigins.win](https://allorigins.win/), then [corsproxy.io](https://corsproxy.io/) if an API key is configured). Each feed only contains the most recent stories (roughly the last day or two), so older start dates don't surface older stories.
+Google News RSS was removed as a source: Google answers requests from CORS proxies with a "Sorry..." block page (HTTP 503).
 
 ## Configuration
 
@@ -90,8 +90,9 @@ GitHub Actions workflow (`.github/workflows/deploy.yml`) builds the app with Vit
 | Module | Purpose |
 |---|---|
 | `src/Main.elm` | UI: the form, request state, results |
-| `src/Feeds.elm` | Fetches each feed via the CORS proxies |
+| `src/Feeds.elm` | Fetches every source (RSS via the CORS proxies; Wikipedia directly) |
 | `src/Rss.elm` | Parses RSS XML into stories |
+| `src/WikipediaCurrentEvents.elm` | Parses Wikipedia Current Events day pages into stories |
 | `src/Rfc822.elm` | Parses RSS `<pubDate>` dates |
 | `src/Cluster.elm` | Groups similar headlines |
 | `src/Rank.elm` | Scores and picks the top stories |
@@ -103,6 +104,6 @@ Stories are filtered to those published on or after the start date (in your time
 - Recency (exponential decay)
 - Coverage boost (key for "biggest story")
 - Impact keywords (deaths, war, elections, natural disasters, etc.)
-- Soft authority boost for major outlets (for Google News items, based on the original outlet rather than the news.google.com link)
+- Soft authority boost for major outlets (for Wikipedia events, based on the first cited outlet)
 
 Top N individual stories are returned (deduped by URL).
