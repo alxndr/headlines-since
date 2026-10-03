@@ -37,6 +37,13 @@ bbcNewsFeed =
 </rss>"""
 
 
+{-| Abridged from Jacobin's real Atom feed.
+-}
+atomFeed : String
+atomFeed =
+    """<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>Jacobin</title><link href="https://jacobin.com/feed/" rel="self"/><entry><title>The Stakes Are High in Brazil’s Upcoming Election</title><link rel="alternate" type="text/html" href="https://jacobin.com/2026/10/brazil-election"/><link rel="enclosure" type="image/jpeg" href="https://media.jacobin.com/images/x.jpg"/><published>2026-10-02T21:47:17.872283Z</published><updated>2026-10-02T21:50:00Z</updated><summary type="text">During Jair Bolsonaro’s term as president, he faced a liberal establishment.</summary><content type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml"><p>For a time this summer...</p></div></content></entry></feed>"""
+
+
 suite : Test
 suite =
     describe "Rss.parse"
@@ -88,6 +95,33 @@ suite =
                 Rss.parse "<rss><channel><item><title>T</title><link>https://example.com/a</link><pubDate>Fri, 02 Oct 2026 19:40:05 GMT</pubDate><description><![CDATA[<p>Trump&#8217;s rule &amp; <b>guns</b>&nbsp;&#x2014; more</p>]]></description></item></channel></rss>"
                     |> Result.map (List.map .summary)
                     |> Expect.equal (Ok [ "Trump’s rule & guns — more" ])
+        , test "Atom feeds: alternate link, published date, and summary" <|
+            \_ ->
+                Rss.parse atomFeed
+                    |> Result.map (List.map (\story -> ( story.title, story.url, story.summary )))
+                    |> Expect.equal
+                        (Ok
+                            [ ( "The Stakes Are High in Brazil’s Upcoming Election"
+                              , "https://jacobin.com/2026/10/brazil-election"
+                              , "During Jair Bolsonaro’s term as president, he faced a liberal establishment."
+                              )
+                            ]
+                        )
+        , test "Atom dates are ISO 8601" <|
+            \_ ->
+                Rss.parse atomFeed
+                    |> Result.map (List.map .publishedAt)
+                    |> Expect.equal (Ok [ Story.ExactTime (Time.millisToPosix 1790977637872) ])
+        , test "an empty description falls back to the full content" <|
+            \_ ->
+                Rss.parse "<rss><channel><item><title>T</title><link>https://example.com/a</link><pubDate>Fri, 02 Oct 2026 19:40:05 GMT</pubDate><description></description><content:encoded><![CDATA[<p>The article text.</p>]]></content:encoded></item></channel></rss>"
+                    |> Result.map (List.map .summary)
+                    |> Expect.equal (Ok [ "The article text." ])
+        , test "summaries are cut to 400 characters" <|
+            \_ ->
+                Rss.parse ("<rss><channel><item><title>T</title><link>https://example.com/a</link><pubDate>Fri, 02 Oct 2026 19:40:05 GMT</pubDate><description>" ++ String.repeat 500 "x" ++ "</description></item></channel></rss>")
+                    |> Result.map (List.map (.summary >> String.length))
+                    |> Expect.equal (Ok [ 400 ])
         , test "a document that isn't XML is an error" <|
             \_ ->
                 Rss.parse "<html><body>Rate limited"

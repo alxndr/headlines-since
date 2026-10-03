@@ -1,9 +1,12 @@
 module Rss exposing (parse)
 
-{-| Turn an RSS 2.0 document into a list of stories.
+{-| Turn a news feed into a list of stories. Both common feed formats are
+read: RSS 2.0 (`<rss><channel><item>`) and Atom (`<feed><entry>`, used by
+e.g. Vox, Jacobin and The Atlantic).
 -}
 
 import Hex
+import Iso8601
 import Regex
 import Rfc822
 import Story exposing (Story)
@@ -12,22 +15,106 @@ import Url
 import Xml.Decode as XD
 
 
-{-| Items that can't be used (e.g. no parseable `<pubDate>`) are skipped
-rather than failing the whole feed. Only a malformed document is an error.
+{-| Items that can't be used (e.g. no parseable date) are skipped rather
+than failing the whole feed. Only a malformed document is an error.
+
+Looking for RSS items in an Atom feed finds none rather than failing, so
+Atom entries are looked for when there are no RSS items.
+
 -}
 parse : String -> Result String (List Story)
 parse xml =
-    XD.run (XD.path [ "channel", "item" ] (XD.leakyList itemDecoder)) xml
+    XD.run
+        (XD.path [ "channel", "item" ] (XD.leakyList rssItemDecoder)
+            |> XD.andThen
+                (\rssItems ->
+                    if List.isEmpty rssItems then
+                        XD.path [ "entry" ] (XD.leakyList atomEntryDecoder)
+
+                    else
+                        XD.succeed rssItems
+                )
+        )
+        xml
 
 
-itemDecoder : XD.Decoder Story
-itemDecoder =
+rssItemDecoder : XD.Decoder Story
+rssItemDecoder =
     XD.map5 toStory
-        (XD.path [ "title" ] (XD.single XD.string) |> XD.withDefault "")
-        (XD.path [ "link" ] (XD.single XD.string) |> XD.withDefault "")
+        (optionalText "title")
+        (optionalText "link")
         (XD.path [ "pubDate" ] (XD.single pubDateDecoder))
         (XD.maybe (XD.path [ "source" ] (XD.single sourceDecoder)))
-        (XD.path [ "description" ] (XD.single XD.string) |> XD.withDefault "")
+        -- Some feeds (e.g. Truthout) leave the description empty and put the
+        -- article in <content:encoded>.
+        (XD.map2 firstNonEmpty (optionalText "description") (optionalText "content:encoded"))
+
+
+atomEntryDecoder : XD.Decoder Story
+atomEntryDecoder =
+    XD.map5 toStory
+        (optionalText "title")
+        (XD.path [ "link" ] (XD.list atomLinkDecoder) |> XD.map pickAtomLink |> XD.withDefault "")
+        (XD.oneOf
+            [ XD.path [ "published" ] (XD.single isoDateDecoder)
+            , XD.path [ "updated" ] (XD.single isoDateDecoder)
+            ]
+        )
+        (XD.succeed Nothing)
+        -- Vox leaves <summary> empty and puts the article in <content>.
+        (XD.map2 firstNonEmpty (optionalText "summary") (optionalText "content"))
+
+
+{-| Text of a child element, or "" if it's missing or isn't plain text
+(e.g. Atom content given as XHTML elements).
+-}
+optionalText : String -> XD.Decoder String
+optionalText elementName =
+    XD.path [ elementName ] (XD.single XD.string) |> XD.withDefault ""
+
+
+firstNonEmpty : String -> String -> String
+firstNonEmpty first second =
+    if String.isEmpty (toPlainText first) then
+        second
+
+    else
+        first
+
+
+{-| Atom entries can have several links (the article, images, comments);
+the article's has rel="alternate", or no rel at all.
+-}
+atomLinkDecoder : XD.Decoder { rel : String, href : String }
+atomLinkDecoder =
+    XD.map2 (\rel href -> { rel = rel, href = href })
+        (XD.stringAttr "rel" |> XD.withDefault "alternate")
+        (XD.stringAttr "href")
+
+
+pickAtomLink : List { rel : String, href : String } -> String
+pickAtomLink links =
+    links
+        |> List.filter (\link -> link.rel == "alternate")
+        |> List.head
+        |> Maybe.map .href
+        |> Maybe.withDefault ""
+
+
+{-| Atom dates are ISO 8601, e.g. "2026-10-02T17:14:00-04:00".
+-}
+isoDateDecoder : XD.Decoder Time.Posix
+isoDateDecoder =
+    XD.string
+        |> XD.andThen
+            (\date ->
+                case Iso8601.toTime (String.trim date) of
+                    Ok posix ->
+                        XD.succeed posix
+
+                    Err _ ->
+                        XD.fail ("unparseable date: " ++ date)
+            )
 
 
 {-| Google News items name the original outlet in an element like
@@ -92,12 +179,21 @@ toStory rawTitle rawLink publishedAt source rawDescription =
     , section = Nothing
     , sourceCount = 1
     , linkedArticles = []
-    , summary = toPlainText rawDescription
+    , summary = String.left maxSummaryLength (toPlainText rawDescription)
     }
 
 
-{-| "<https://www.bbc.co.uk/news/x"> becomes "bbc.co.uk"; unparseable URLs
-become "".
+{-| Summaries are only used to match articles to Wikipedia events, and the
+matcher was evaluated on summaries cut to this length. Some feeds give the
+whole article, which would otherwise dilute the match.
+-}
+maxSummaryLength : Int
+maxSummaryLength =
+    400
+
+
+{-| The URL's host without any leading "www.", e.g. "bbc.co.uk"; "" for an
+unparseable URL.
 -}
 hostOf : String -> String
 hostOf urlString =

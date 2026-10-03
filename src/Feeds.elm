@@ -44,8 +44,7 @@ type alias OutletResult =
     }
 
 
-{-| An outlet's RSS feed, which can be paged back through (page 1 is the
-newest).
+{-| An outlet's RSS or Atom feed.
 
 Removed sources:
 
@@ -57,28 +56,87 @@ Removed sources:
 -}
 type alias Outlet =
     { name : String
-    , pageUrl : Int -> String
+    , pages : FeedPages
+    , access : Access
     }
 
 
+{-| Some feeds can be paged back through (page 1 is the newest); the rest
+only have their latest items.
+-}
+type FeedPages
+    = Paged (Int -> String)
+    | LatestOnly String
+
+
+{-| Most feeds don't allow cross-origin requests from a browser, so they go
+through a CORS proxy; the few that do are fetched directly.
+-}
+type Access
+    = ViaProxy
+    | Direct
+
+
+{-| In alphabetical order, which is the order their sections are shown in.
+How far back the latest-only feeds reach was measured in October 2026.
+-}
 outlets : List Outlet
 outlets =
-    [ { name = "Mother Jones"
-      , pageUrl = \page -> "https://www.motherjones.com/feed/?paged=" ++ String.fromInt page
+    [ -- ~100 items, about a week
+      { name = "Axios", pages = LatestOnly "https://api.axios.com/feed/", access = ViaProxy }
+    , { name = "Common Dreams"
+      , pages = Paged (\page -> "https://www.commondreams.org/feeds/feed.rss?page=" ++ String.fromInt page)
+      , access = ViaProxy
+      }
+
+    -- ~40 items, about 12 days
+    , { name = "Democracy Now!", pages = LatestOnly "https://www.democracynow.org/democracynow.rss", access = ViaProxy }
+
+    -- Atom; ~20 items, about 4 days
+    , { name = "Jacobin", pages = LatestOnly "https://jacobin.com/feed/", access = ViaProxy }
+    , { name = "Mother Jones"
+      , pages = Paged (\page -> "https://www.motherjones.com/feed/?paged=" ++ String.fromInt page)
+      , access = ViaProxy
+      }
+
+    -- ~10 items, about a day
+    , { name = "NPR", pages = LatestOnly "https://feeds.npr.org/1001/rss.xml", access = ViaProxy }
+
+    -- ~30 items, about 10 days
+    , { name = "Politico", pages = LatestOnly "https://rss.politico.com/politics-news.xml", access = ViaProxy }
+
+    -- ~20 items, about 2 weeks
+    , { name = "ProPublica", pages = LatestOnly "https://www.propublica.org/feeds/propublica/main", access = ViaProxy }
+
+    -- Atom; ~25 items, about 2 days
+    , { name = "The Atlantic", pages = LatestOnly "https://www.theatlantic.com/feed/all/", access = ViaProxy }
+
+    -- ~35 items, about 2 days
+    , { name = "The Guardian (US)", pages = LatestOnly "https://www.theguardian.com/us-news/rss", access = ViaProxy }
+    , { name = "The Intercept"
+      , pages = Paged (\page -> "https://theintercept.com/feed/?lang=en&paged=" ++ String.fromInt page)
+      , access = ViaProxy
       }
     , { name = "The Nation"
-      , pageUrl = \page -> "https://www.thenation.com/feed/?post_type=article&paged=" ++ String.fromInt page
+      , pages = Paged (\page -> "https://www.thenation.com/feed/?post_type=article&paged=" ++ String.fromInt page)
+      , access = ViaProxy
       }
-    , { name = "Common Dreams"
-      , pageUrl = \page -> "https://www.commondreams.org/feeds/feed.rss?page=" ++ String.fromInt page
-      }
+
+    -- ~20 items, about 2 days; allows cross-origin requests
+    , { name = "The New York Times", pages = LatestOnly "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml", access = Direct }
+
+    -- ~100 items, about 10 days
+    , { name = "Truthout", pages = LatestOnly "https://truthout.org/feed/", access = ViaProxy }
+
+    -- Atom; ~10 items, about 3 days
+    , { name = "Vox", pages = LatestOnly "https://www.vox.com/rss/index.xml", access = ViaProxy }
     ]
 
 
 {-| Each page is a request through the CORS proxy, so paging is capped.
-Pages hold 10 (Mother Jones), 30 (Common Dreams) or 50 (The Nation)
-articles, so 10 pages cover roughly 2 weeks, 6 months, and 3 months
-respectively (measured in October 2026).
+Pages hold 10 (Mother Jones), 20 (The Intercept), 30 (Common Dreams) or 50
+(The Nation) articles, so 10 pages cover roughly 2 weeks, 3 months, 6
+months, and 3 months respectively (measured in October 2026).
 -}
 maxPagesPerOutlet : Int
 maxPagesPerOutlet =
@@ -92,8 +150,21 @@ the result.
 fetchOutlet : String -> Date -> Outlet -> Task Never OutletResult
 fetchOutlet corsProxyKey startDate outlet =
     let
-        proxyUrlBuilders =
-            proxies corsProxyKey
+        urlBuilders =
+            case outlet.access of
+                ViaProxy ->
+                    proxies corsProxyKey
+
+                Direct ->
+                    [ identity ]
+
+        ( pageUrl, lastPage ) =
+            case outlet.pages of
+                Paged urlForPage ->
+                    ( urlForPage, maxPagesPerOutlet )
+
+                LatestOnly url ->
+                    ( \_ -> url, 1 )
 
         result stories complete =
             { outletName = outlet.name
@@ -107,7 +178,7 @@ fetchOutlet corsProxyKey startDate outlet =
             Date.compare (Story.publishedDate Time.utc story) startDate == LT
 
         fetchPage page storiesSoFar =
-            fetchViaProxies proxyUrlBuilders (outlet.pageUrl page)
+            fetchViaProxies urlBuilders (pageUrl page)
                 |> Task.andThen (Rss.parse >> resultToTask)
                 |> Task.map Ok
                 |> Task.onError (Err >> Task.succeed)
@@ -118,7 +189,8 @@ fetchOutlet corsProxyKey startDate outlet =
                                 if List.isEmpty pageStories || List.any isBeforeStartDate pageStories then
                                     Task.succeed (result (Ok (storiesSoFar ++ pageStories)) True)
 
-                                else if page >= maxPagesPerOutlet then
+                                else if page >= lastPage then
+                                    -- No more pages, but the start date wasn't reached.
                                     Task.succeed (result (Ok (storiesSoFar ++ pageStories)) False)
 
                                 else
@@ -171,8 +243,9 @@ proxies corsProxyKey =
         [ corsProxyIo, allOrigins ]
 
 
-{-| Tries each proxy until one returns something that looks like XML. If
-they all fail, the last proxy's error is reported.
+{-| Tries each URL builder (each proxy, or `identity` for a direct request)
+until one returns something that looks like XML. If they all fail, the
+last one's error is reported.
 -}
 fetchViaProxies : List (String -> String) -> String -> Task String String
 fetchViaProxies proxyUrlBuilders feedUrl =

@@ -15,7 +15,9 @@ The code in this project was bootstrapped by Cohere's [`north-mini-code-1.0`](ht
 
 - **[Wikipedia's Current Events portal](https://en.wikipedia.org/wiki/Portal:Current_events)**: an editor-curated list of each day's notable events, with citations. One page per day, so it covers any start date. Fetched directly from the Wikipedia API (no proxy needed).
 
-- **Outlets' RSS feeds**: [Mother Jones](https://www.motherjones.com/), [The Nation](https://www.thenation.com/) and [Common Dreams](https://www.commondreams.org/), fetched through CORS proxies ([corsproxy.io](https://corsproxy.io/) if an API key is configured, falling back to [allorigins.win](https://allorigins.win/)). The app pages back through each feed to the start date, up to 10 pages per outlet.
+- **Outlets' RSS and Atom feeds**, fetched through CORS proxies ([corsproxy.io](https://corsproxy.io/) if an API key is configured, falling back to [allorigins.win](https://allorigins.win/)), except The New York Times, whose feed can be fetched directly:
+  - **Paged back to the start date** (up to 10 pages each): Common Dreams, Mother Jones, The Intercept, The Nation.
+  - **Latest items only** (their feeds can't be paged; they reach back roughly a day to two weeks): Axios, Democracy Now!, Jacobin, NPR, Politico, ProPublica, The Atlantic, The Guardian (US), The New York Times, Truthout, Vox.
 
 Outlets' articles can't be ranked against Wikipedia events (they have no Wikipedia topic, so no page views). An article is attached to a ranked story as a related report when it clearly reports the same event; the rest are listed per outlet below the ranked stories, newest first. See [Matching outlets' articles](#matching-outlets-articles).
 
@@ -99,8 +101,8 @@ GitHub Actions workflow (`.github/workflows/deploy.yml`) runs the Tests workflow
 | Module | Purpose |
 |---|---|
 | `src/Main.elm` | The form and results; starts the Wikipedia ranking and each outlet's feed loading in parallel, and attaches outlets' articles to ranked stories |
-| `src/Feeds.elm` | Fetches Wikipedia's Current Events, and pages through outlets' RSS feeds via the CORS proxies |
-| `src/Rss.elm` | Parses RSS XML into stories |
+| `src/Feeds.elm` | Fetches Wikipedia's Current Events, and outlets' feeds (paging back where possible; most via the CORS proxies) |
+| `src/Rss.elm` | Parses RSS and Atom feeds into stories |
 | `src/WikipediaCurrentEvents.elm` | Parses Wikipedia Current Events day pages into stories |
 | `src/Rfc822.elm` | Parses RSS `<pubDate>` dates |
 | `src/PageViews.elm` | Fetches Wikipedia page views for story topics |
@@ -133,9 +135,9 @@ Duplicate URLs are only considered once.
 ## Limitations
 
 - **The most recent day is thin.** Wikipedia's page for a day fills in as the day goes on (e.g. at 01:39 UTC on 3 October 2026, that day's page had no events yet, 2 October had 14 and 1 October had 22), so the ranked list has little from today. Outlets' articles from today still appear in their sections, unranked.
-- **Long date ranges are partly covered.** Outlets' feeds are paged back at most 10 pages each (about 2 weeks for Mother Jones, 3 months for The Nation, 6 months for Common Dreams), and for ranges starting more than 60 days ago, page views are looked up for only the 50 most-cited topics.
-- **Proxy quota.** corsproxy.io's free plan allows 10,000 requests a month, and each outlet feed page is one request (a long date range can use about 30 per search).
-- **Outlets' articles rarely match.** See below.
+- **Long date ranges are partly covered.** Paged outlets' feeds go back at most 10 pages each (about 2 weeks for Mother Jones, 3 months for The Nation and The Intercept, 6 months for Common Dreams), the other outlets only have their latest items (a day to two weeks), and for ranges starting more than 60 days ago, page views are looked up for only the 50 most-cited topics. Each outlet's section notes when it couldn't reach back to the start date.
+- **Proxy quota.** corsproxy.io's free plan allows 10,000 requests a month, and each outlet feed page is one request: about 16-20 per search for a range of a week or so, and up to about 50 for long ranges.
+- **Outlets' articles rarely match.** See below. Straight-news outlets (e.g. The New York Times, Axios) match more often than opinion and investigative ones, since they report the same events Wikipedia lists.
 
 ## Matching outlets' articles
 

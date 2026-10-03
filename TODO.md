@@ -9,15 +9,21 @@
 
 * add more sources (findings from 2026-10-02 research; "proxy" = no CORS headers, so it needs a CORS proxy)
     * [x] Mother Jones: `https://www.motherjones.com/feed/`, 10 items/page; WordPress paging (`?paged=N`) reaches back ~1 year (paged=200 → Sept 2025); proxy
-    * [ ] Vox: `https://www.vox.com/rss/index.xml`, 10 items (~2 days); no paging; proxy
+    * [ ] Jacobin
+    * [ ] Al Jazeera
+    * [x] Vox: `https://www.vox.com/rss/index.xml`, 10 items (~2 days); no paging; proxy; Atom
     * [x] The Nation: `https://www.thenation.com/feed/?post_type=article`, 50 items (~1 week) per page; `&paged=N` works (paged=10 → July 2026); proxy
     * [x] [Common Dreams](https://www.commondreams.org/): `https://www.commondreams.org/feeds/feed.rss`, 30 items (~2.5 weeks); `?page=N` works; proxy
+    * [ ] MS NOW: `https://www.ms.now/feed`, 10 items (same day only); paging params ignored; proxy
+    * [x] NYT RSS: `https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml`, 25 items (~1 day); **no proxy needed** (CORS `*`)
+    * [ ] NYT APIs (free key; CORS `*`; 5 req/min, 500/day per key, shared by every visitor): Article Search can filter by date and by front page (`print_page`), a strong "importance" signal; Archive API returns a whole month (large)
+    * [x] The Intercept (paged), ProPublica, Democracy Now!, Truthout, Guardian US RSS, NPR, Axios, Politico, Jacobin (Atom), The Atlantic (Atom): added 2026-10-02
+    * [ ] Al Jazeera: `https://www.aljazeera.com/xml/rss/all.xml`, ~25 items (~1 day); mostly no summaries, so its articles would rarely match; proxy
+    * [ ] American Prospect: `https://prospect.org/api/rss/all.rss` answered 429 (Too Many Requests) when probed; untested
+    * [ ] In These Times: `https://inthesetimes.com/rss`, 20 items (~3.5 weeks); no summaries; paging ignored; proxy
+    * [ ] Guardian Content API (free key; CORS `*`; reportedly 4000/day non-commercial): date-range search, but no importance ranking; the old public `test` key no longer works
     * [-] ~~Reuters~~ (won't do): no public RSS any more (404); Google News search `site:reuters.com` was the usual workaround, but Google blocks proxies
     * [-] ~~CNN~~ (won't do): RSS abandoned (`rss.cnn.com` feeds last updated 2023/2024)
-    * [ ] MS NOW: `https://www.ms.now/feed`, 10 items (same day only); paging params ignored; proxy
-    * [ ] NYT RSS: `https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml`, 25 items (~1 day); **no proxy needed** (CORS `*`)
-    * [ ] NYT APIs (free key; CORS `*`; 5 req/min, 500/day per key, shared by every visitor): Article Search can filter by date and by front page (`print_page`), a strong "importance" signal; Archive API returns a whole month (large)
-    * [ ] Guardian Content API (free key; CORS `*`; reportedly 4000/day non-commercial): date-range search, but no importance ranking; the old public `test` key no longer works
 
 * [ ] link to articles thru archive.is proxy
 
@@ -31,7 +37,7 @@
 
 * outlets
     * [ ] outlets' articles rarely match a Wikipedia event (the strict matcher found 2 of 12 true matches in testing); a better matcher (e.g. a language model) would need a backend to hold an API key
-    * [ ] on corsproxy.io's free plan (10,000 requests a month), a long date range can use ~30 requests per search (one per outlet feed page)
+    * [ ] on corsproxy.io's free plan (10,000 requests a month), a search uses ~16-20 requests for a week-long range and up to ~50 for long ranges (one per outlet feed page)
 
 * coverage
     * [ ] the most recent day is thin in the ranked list, because Wikipedia's page for a day fills in as the day goes on (outlets' articles from today do appear, unranked); a source of ranked same-day news would help
