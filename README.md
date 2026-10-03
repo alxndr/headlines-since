@@ -15,9 +15,9 @@ The code in this project was bootstrapped by Cohere's [`north-mini-code-1.0`](ht
 
 - **[Wikipedia's Current Events portal](https://en.wikipedia.org/wiki/Portal:Current_events)**: an editor-curated list of each day's notable events, with citations. One page per day, so it covers any start date. Fetched directly from the Wikipedia API (no proxy needed).
 
-- **Outlets' RSS and Atom feeds**, fetched through CORS proxies ([corsproxy.io](https://corsproxy.io/) if an API key is configured, falling back to [allorigins.win](https://allorigins.win/)), except The New York Times, whose feed can be fetched directly:
-  - **Paged back to the start date** (up to 10 pages each): Common Dreams, Mother Jones, The Intercept, The Nation.
-  - **Latest items only** (their feeds can't be paged; they reach back roughly a day to two weeks): Axios, Democracy Now!, Jacobin, NPR, Politico, ProPublica, The Atlantic, The Guardian (US), The New York Times, Truthout, Vox.
+- **23 outlets' RSS (2.0 and 1.0) and Atom feeds**, fetched through CORS proxies ([corsproxy.io](https://corsproxy.io/) if an API key is configured, falling back to [allorigins.win](https://allorigins.win/)), except DW, The New York Times and The New Yorker, whose feeds can be fetched directly:
+  - **Paged back to the start date** (up to 10 pages each): Capital B, Common Dreams, Mother Jones, Prism, The 19th, The Intercept, The Nation, Truthdig.
+  - **Latest items only** (their feeds can't be paged; they reach back from about a day to two months): Axios, Democracy Now!, DW, Jacobin, NPR, Politico, Popular Information, ProPublica, The Atlantic, The Guardian (US), The Marshall Project, The New York Times, The New Yorker, Truthout, Vox.
 
 Outlets' articles can't be ranked against Wikipedia events (they have no Wikipedia topic, so no page views). An article is attached to a ranked story as a related report when it clearly reports the same event; the rest are listed per outlet below the ranked stories, newest first. See [Matching outlets' articles](#matching-outlets-articles).
 
@@ -25,6 +25,7 @@ The ranked stories appear as soon as Wikipedia has loaded; each outlet's section
 
 Removed sources:
 - **Google News RSS**: Google answers requests from CORS proxies with a "Sorry..." block page (HTTP 503).
+- **LA Times RSS**: refuses requests from corsproxy.io (HTTP 403), and allorigins.win hangs until it times out.
 - **BBC News RSS**: its headlines link to no Wikipedia article, so they can't be given a public-interest score or reliably matched to Wikipedia events about the same story (tested: exact citation URLs matched 0 of 33 headlines; title word overlap and Wikipedia search were both wrong too often). Its significant stories were already covered by Wikipedia.
 
 ## Configuration
@@ -135,9 +136,9 @@ Duplicate URLs are only considered once.
 ## Limitations
 
 - **The most recent day is thin.** Wikipedia's page for a day fills in as the day goes on (e.g. at 01:39 UTC on 3 October 2026, that day's page had no events yet, 2 October had 14 and 1 October had 22), so the ranked list has little from today. Outlets' articles from today still appear in their sections, unranked.
-- **Long date ranges are partly covered.** Paged outlets' feeds go back at most 10 pages each (about 2 weeks for Mother Jones, 3 months for The Nation and The Intercept, 6 months for Common Dreams), the other outlets only have their latest items (a day to two weeks), and for ranges starting more than 60 days ago, page views are looked up for only the 50 most-cited topics. Each outlet's section notes when it couldn't reach back to the start date.
-- **Proxy quota.** corsproxy.io's free plan allows 10,000 requests a month, and each outlet feed page is one request: about 16-20 per search for a range of a week or so, and up to about 50 for long ranges.
-- **Outlets' articles rarely match.** See below. Straight-news outlets (e.g. The New York Times, Axios) match more often than opinion and investigative ones, since they report the same events Wikipedia lists.
+- **Long date ranges are partly covered, and slower.** Paged outlets' feeds go back at most 10 pages each (e.g. about 2 weeks for Mother Jones, 3 months for The Nation and The Intercept, 6 months for Common Dreams), loaded one page after another (a month-long range took about 26 seconds for every outlet to load, though the ranked stories appeared in 4), the other outlets only have their latest items (a day to two months), and for ranges starting more than 60 days ago, page views are looked up for only the 50 most-cited topics. Each outlet's section notes when it couldn't reach back to the start date.
+- **Proxy quota.** corsproxy.io's free plan allows 10,000 requests a month, and each outlet feed page is one request: about 25 per search for a range of a week or so, about 47 for a month, and at most 92 (8 paged outlets at 10 pages each, plus 12 other proxied outlets).
+- **Outlets' articles rarely match.** See below. Straight-news outlets (e.g. DW, The New York Times, Axios) match more often than opinion and investigative ones, since they report the same events Wikipedia lists.
 
 ## Matching outlets' articles
 

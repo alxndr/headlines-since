@@ -112,6 +112,11 @@ suite =
                 Rss.parse atomFeed
                     |> Result.map (List.map .publishedAt)
                     |> Expect.equal (Ok [ Story.ExactTime (Time.millisToPosix 1790977637872) ])
+        , test "RSS 1.0 feeds: items beside the channel, with ISO 8601 dc:date" <|
+            \_ ->
+                Rss.parse """<?xml version="1.0" encoding="UTF-8"?><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://purl.org/rss/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/"><channel rdf:about="https://www.dw.com"><title>DW</title></channel><item rdf:about="https://www.dw.com/en/a"><title>Pakistan vs. Afghanistan</title><link>https://www.dw.com/en/a</link><description>For years, Pakistan supported the Taliban.</description><dc:date>2026-10-03T18:52:44Z</dc:date></item></rdf:RDF>"""
+                    |> Result.map (List.map (\story -> ( story.title, story.url, story.publishedAt )))
+                    |> Expect.equal (Ok [ ( "Pakistan vs. Afghanistan", "https://www.dw.com/en/a", Story.ExactTime (Time.millisToPosix 1791053564000) ) ])
         , test "an empty description falls back to the full content" <|
             \_ ->
                 Rss.parse "<rss><channel><item><title>T</title><link>https://example.com/a</link><pubDate>Fri, 02 Oct 2026 19:40:05 GMT</pubDate><description></description><content:encoded><![CDATA[<p>The article text.</p>]]></content:encoded></item></channel></rss>"

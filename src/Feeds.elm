@@ -52,6 +52,9 @@ Removed sources:
     CORS proxies with a "Sorry..." block page (HTTP 503).
   - BBC News (<https://feeds.bbci.co.uk/news/rss.xml>): no paging (only the
     last day or two), and its significant stories were already on Wikipedia.
+  - LA Times (<https://www.latimes.com/world-nation/rss2.0.xml>): refuses
+    requests from corsproxy.io (HTTP 403, "Access to this site has been
+    denied"), and allorigins.win hangs until it times out.
 
 -}
 type alias Outlet =
@@ -77,13 +80,22 @@ type Access
     | Direct
 
 
-{-| In alphabetical order, which is the order their sections are shown in.
-How far back the latest-only feeds reach was measured in October 2026.
+{-| Sorted by name, which is the order their sections are shown in. How
+far back the latest-only feeds reach was measured in October 2026.
 -}
 outlets : List Outlet
 outlets =
+    List.sortBy (.name >> String.toLower) unsortedOutlets
+
+
+unsortedOutlets : List Outlet
+unsortedOutlets =
     [ -- ~100 items, about a week
       { name = "Axios", pages = LatestOnly "https://api.axios.com/feed/", access = ViaProxy }
+    , { name = "Capital B"
+      , pages = Paged (\page -> "https://capitalbnews.org/feed/?paged=" ++ String.fromInt page)
+      , access = ViaProxy
+      }
     , { name = "Common Dreams"
       , pages = Paged (\page -> "https://www.commondreams.org/feeds/feed.rss?page=" ++ String.fromInt page)
       , access = ViaProxy
@@ -91,6 +103,9 @@ outlets =
 
     -- ~40 items, about 12 days
     , { name = "Democracy Now!", pages = LatestOnly "https://www.democracynow.org/democracynow.rss", access = ViaProxy }
+
+    -- RSS 1.0; ~135 items, about a month; allows cross-origin requests
+    , { name = "DW", pages = LatestOnly "https://rss.dw.com/rdf/rss-en-all", access = Direct }
 
     -- Atom; ~20 items, about 4 days
     , { name = "Jacobin", pages = LatestOnly "https://jacobin.com/feed/", access = ViaProxy }
@@ -102,11 +117,22 @@ outlets =
     -- ~10 items, about a day
     , { name = "NPR", pages = LatestOnly "https://feeds.npr.org/1001/rss.xml", access = ViaProxy }
 
+    -- ~20 items, about 4 weeks
+    , { name = "Popular Information", pages = LatestOnly "https://popular.info/feed", access = ViaProxy }
+
     -- ~30 items, about 10 days
     , { name = "Politico", pages = LatestOnly "https://rss.politico.com/politics-news.xml", access = ViaProxy }
+    , { name = "Prism"
+      , pages = Paged (\page -> "https://prismreports.org/feed/?paged=" ++ String.fromInt page)
+      , access = ViaProxy
+      }
 
     -- ~20 items, about 2 weeks
     , { name = "ProPublica", pages = LatestOnly "https://www.propublica.org/feeds/propublica/main", access = ViaProxy }
+    , { name = "The 19th"
+      , pages = Paged (\page -> "https://19thnews.org/feed/?paged=" ++ String.fromInt page)
+      , access = ViaProxy
+      }
 
     -- Atom; ~25 items, about 2 days
     , { name = "The Atlantic", pages = LatestOnly "https://www.theatlantic.com/feed/all/", access = ViaProxy }
@@ -117,6 +143,9 @@ outlets =
       , pages = Paged (\page -> "https://theintercept.com/feed/?lang=en&paged=" ++ String.fromInt page)
       , access = ViaProxy
       }
+
+    -- ~50 items, about 2 months
+    , { name = "The Marshall Project", pages = LatestOnly "https://www.themarshallproject.org/rss/recent.rss", access = ViaProxy }
     , { name = "The Nation"
       , pages = Paged (\page -> "https://www.thenation.com/feed/?post_type=article&paged=" ++ String.fromInt page)
       , access = ViaProxy
@@ -125,8 +154,15 @@ outlets =
     -- ~20 items, about 2 days; allows cross-origin requests
     , { name = "The New York Times", pages = LatestOnly "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml", access = Direct }
 
+    -- ~25 items, about 2 weeks; allows cross-origin requests
+    , { name = "The New Yorker", pages = LatestOnly "https://www.newyorker.com/feed/news", access = Direct }
+
     -- ~100 items, about 10 days
     , { name = "Truthout", pages = LatestOnly "https://truthout.org/feed/", access = ViaProxy }
+    , { name = "Truthdig"
+      , pages = Paged (\page -> "https://www.truthdig.com/feed/?paged=" ++ String.fromInt page)
+      , access = ViaProxy
+      }
 
     -- Atom; ~10 items, about 3 days
     , { name = "Vox", pages = LatestOnly "https://www.vox.com/rss/index.xml", access = ViaProxy }

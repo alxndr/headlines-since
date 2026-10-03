@@ -15,7 +15,17 @@
     * [x] NYT RSS: `https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml`, 25 items (~1 day); **no proxy needed** (CORS `*`)
     * [ ] NYT APIs (free key; CORS `*`; 5 req/min, 500/day per key, shared by every visitor): Article Search can filter by date and by front page (`print_page`), a strong "importance" signal; Archive API returns a whole month (large)
     * [x] The Intercept (paged), ProPublica, Democracy Now!, Truthout, Guardian US RSS, NPR, Axios, Politico, Jacobin (Atom), The Atlantic (Atom): added 2026-10-02
-    * [ ] American Prospect: `https://prospect.org/api/rss/all.rss` answered 429 (Too Many Requests) when probed; untested
+    * [x] DW (RSS 1.0, no proxy), The Marshall Project, Popular Information, The New Yorker (no proxy), and the paged The 19th, Prism, Capital B and Truthdig: added 2026-10-03
+    * [-] ~~LA Times~~ (won't do): refuses requests from corsproxy.io (HTTP 403), and allorigins.win hangs
+    * more candidates from the 2026-10-03 research (all have summaries and need the proxy unless noted):
+        * [ ] straight news: Semafor (~250 items, ~10 days), NBC News, CBS News, Washington Post (1-3 days each); Euronews, France 24, Sky News, CS Monitor (~1 day)
+        * [ ] progressive/independent: The Lever, Drop Site News, Zeteo (~1 week each)
+        * [ ] climate: Grist, Inside Climate News (both page with `?paged=N`)
+        * [ ] politics: TPM, Reason (both page), The Bulwark, Time, Salon
+        * [ ] tech: The Verge (Atom), 404 Media, Ars Technica
+        * no summaries, so they'd rarely match: ABC News (no proxy), CNBC (Atom, no proxy), PBS NewsHour, The Economist, The Hill, Slate, Newsweek, The Dispatch, Rest of World (no proxy)
+        * didn't work: AP and The Independent (403), USA Today (402), Kyiv Independent (`/rss/` is 404; find the right URL), HuffPost (0 items), WSJ world (not updated since January 2025)
+    * [ ] American Prospect: `https://prospect.org/api/rss/all.rss` answered 429 (Too Many Requests) when probed twice; untested
     * [ ] In These Times: `https://inthesetimes.com/rss`, 20 items (~3.5 weeks); no summaries; paging ignored; proxy
     * [ ] Guardian Content API (free key; CORS `*`; reportedly 4000/day non-commercial): date-range search, but no importance ranking; the old public `test` key no longer works
     * [-] ~~Reuters~~ (won't do): no public RSS any more (404); Google News search `site:reuters.com` was the usual workaround, but Google blocks proxies
@@ -33,7 +43,9 @@
 
 * outlets
     * [ ] outlets' articles rarely match a Wikipedia event (the strict matcher found 2 of 12 true matches in testing); a better matcher (e.g. a language model) would need a backend to hold an API key
-    * [ ] on corsproxy.io's free plan (10,000 requests a month), a search uses ~16-20 requests for a week-long range and up to ~50 for long ranges (one per outlet feed page)
+    * [ ] on corsproxy.io's free plan (10,000 requests a month), a search uses ~25 requests for a week-long range, ~47 for a month, and at most 92 (one per outlet feed page)
+    * [ ] a paged outlet's pages load one after another, so a month-long range takes ~26s for every outlet to load; pages could be requested several at a time
+    * [ ] with 23 outlets, the "More from other outlets" list is long; consider grouping (e.g. news, progressive, magazines)
 
 * coverage
     * [ ] the most recent day is thin in the ranked list, because Wikipedia's page for a day fills in as the day goes on (outlets' articles from today do appear, unranked); a source of ranked same-day news would help

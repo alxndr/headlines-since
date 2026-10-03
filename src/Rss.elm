@@ -1,8 +1,9 @@
 module Rss exposing (parse)
 
-{-| Turn a news feed into a list of stories. Both common feed formats are
-read: RSS 2.0 (`<rss><channel><item>`) and Atom (`<feed><entry>`, used by
-e.g. Vox, Jacobin and The Atlantic).
+{-| Turn a news feed into a list of stories. The common feed formats are
+read: RSS 2.0 (`<rss><channel><item>`), RSS 1.0 (`<rdf:RDF><item>`, with
+items beside the channel rather than inside it; used by e.g. DW), and Atom
+(`<feed><entry>`, used by e.g. Vox, Jacobin and The Atlantic).
 -}
 
 import Hex
@@ -18,24 +19,38 @@ import Xml.Decode as XD
 {-| Items that can't be used (e.g. no parseable date) are skipped rather
 than failing the whole feed. Only a malformed document is an error.
 
-Looking for RSS items in an Atom feed finds none rather than failing, so
-Atom entries are looked for when there are no RSS items.
+Looking for one format's items in another format's feed finds none rather
+than failing, so each format is tried in turn until one has items.
 
 -}
 parse : String -> Result String (List Story)
 parse xml =
     XD.run
-        (XD.path [ "channel", "item" ] (XD.leakyList rssItemDecoder)
-            |> XD.andThen
-                (\rssItems ->
-                    if List.isEmpty rssItems then
-                        XD.path [ "entry" ] (XD.leakyList atomEntryDecoder)
-
-                    else
-                        XD.succeed rssItems
-                )
+        (firstWithItems
+            [ XD.path [ "channel", "item" ] (XD.leakyList rssItemDecoder)
+            , XD.path [ "item" ] (XD.leakyList rssItemDecoder)
+            , XD.path [ "entry" ] (XD.leakyList atomEntryDecoder)
+            ]
         )
         xml
+
+
+firstWithItems : List (XD.Decoder (List Story)) -> XD.Decoder (List Story)
+firstWithItems decoders =
+    case decoders of
+        [] ->
+            XD.succeed []
+
+        decoder :: rest ->
+            decoder
+                |> XD.andThen
+                    (\items ->
+                        if List.isEmpty items then
+                            firstWithItems rest
+
+                        else
+                            XD.succeed items
+                    )
 
 
 rssItemDecoder : XD.Decoder Story
@@ -43,7 +58,12 @@ rssItemDecoder =
     XD.map5 toStory
         (optionalText "title")
         (optionalText "link")
-        (XD.path [ "pubDate" ] (XD.single pubDateDecoder))
+        -- RSS 1.0 feeds use an ISO 8601 <dc:date> instead of <pubDate>.
+        (XD.oneOf
+            [ XD.path [ "pubDate" ] (XD.single pubDateDecoder)
+            , XD.path [ "dc:date" ] (XD.single isoDateDecoder)
+            ]
+        )
         (XD.maybe (XD.path [ "source" ] (XD.single sourceDecoder)))
         -- Some feeds (e.g. Truthout) leave the description empty and put the
         -- article in <content:encoded>.
@@ -101,7 +121,7 @@ pickAtomLink links =
         |> Maybe.withDefault ""
 
 
-{-| Atom dates are ISO 8601, e.g. "2026-10-02T17:14:00-04:00".
+{-| Atom and RSS 1.0 dates are ISO 8601, e.g. "2026-10-02T17:14:00-04:00".
 -}
 isoDateDecoder : XD.Decoder Time.Posix
 isoDateDecoder =
