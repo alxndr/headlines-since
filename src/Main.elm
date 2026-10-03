@@ -121,7 +121,7 @@ defaultCount =
 
 minCount : Int
 minCount =
-    5
+    1
 
 
 maxCount : Int
@@ -617,6 +617,9 @@ statusText request =
                 Ranked { stories } ->
                     if List.isEmpty stories then
                         "No stories found for this range."
+
+                    else if List.length stories == 1 then
+                        "Found the biggest story"
 
                     else
                         "Found " ++ String.fromInt (List.length stories) ++ " biggest stories"
