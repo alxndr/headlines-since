@@ -77,7 +77,8 @@ outlets =
 
 {-| Each page is a request through the CORS proxy, so paging is capped.
 Pages hold 10 (Mother Jones), 30 (Common Dreams) or 50 (The Nation)
-articles, covering roughly 2 weeks, 7 months, and 2.5 months respectively.
+articles, so 10 pages cover roughly 2 weeks, 6 months, and 3 months
+respectively (measured in October 2026).
 -}
 maxPagesPerOutlet : Int
 maxPagesPerOutlet =

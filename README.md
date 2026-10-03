@@ -98,7 +98,7 @@ GitHub Actions workflow (`.github/workflows/deploy.yml`) builds the app with Vit
 
 | Module | Purpose |
 |---|---|
-| `src/Main.elm` | UI: the form, request state, results |
+| `src/Main.elm` | The form and results; starts the Wikipedia ranking and each outlet's feed loading in parallel, and attaches outlets' articles to ranked stories |
 | `src/Feeds.elm` | Fetches Wikipedia's Current Events, and pages through outlets' RSS feeds via the CORS proxies |
 | `src/Rss.elm` | Parses RSS XML into stories |
 | `src/WikipediaCurrentEvents.elm` | Parses Wikipedia Current Events day pages into stories |
@@ -111,11 +111,11 @@ GitHub Actions workflow (`.github/workflows/deploy.yml`) builds the app with Vit
 
 ## Algorithm
 
-Stories are filtered to those published on or after the start date (in your time zone), then scored as a weighted sum of:
+Only Wikipedia events are ranked. They're filtered to those published from the start date through today (in your time zone), then scored as a weighted sum of:
 
-- **Public interest (0.5)**: average daily [Wikipedia page views](https://wikitech.wikimedia.org/wiki/Analytics/AQS/Pageviews) during the date range for the story's topic article (e.g. "2026 Iran war"), on a log scale. Only Wikipedia events have topics. For ranges older than 60 days, only the 50 most-cited topics are looked up, because each needs its own request.
-- **Sources (0.15)**: how many news reports a Wikipedia event cites
-- **Authority (0.1)**: whether the outlet (for Wikipedia events, the first cited outlet) is a major one
+- **Public interest (0.5)**: average daily [Wikipedia page views](https://wikitech.wikimedia.org/wiki/Analytics/AQS/Pageviews) during the date range for the event's most specific topic (e.g. for an event filed under "2026 Iran war › 2026 Iran war fuel crisis", the fuel crisis article), on a log scale. Events without a topic heading (about a fifth of them) get no public-interest score. For date ranges starting more than 60 days ago, only the 50 most-cited topics are looked up, because each needs its own request.
+- **Sources (0.15)**: how many news reports the event cites
+- **Authority (0.1)**: whether the first outlet the event cites is a major one
 
 Sports and arts stories get half the score, because they draw far more page views than their significance warrants.
 
@@ -130,7 +130,14 @@ Stories are then picked one at a time, highest score first:
 
 Duplicate URLs are only considered once.
 
-### Matching outlets' articles
+## Limitations
+
+- **The most recent day is thin.** Wikipedia's page for a day fills in as the day goes on (e.g. at 01:39 UTC on 3 October 2026, that day's page had no events yet, 2 October had 14 and 1 October had 22), so the ranked list has little from today. Outlets' articles from today still appear in their sections, unranked.
+- **Long date ranges are partly covered.** Outlets' feeds are paged back at most 10 pages each (about 2 weeks for Mother Jones, 3 months for The Nation, 6 months for Common Dreams), and for ranges starting more than 60 days ago, page views are looked up for only the 50 most-cited topics.
+- **Proxy quota.** corsproxy.io's free plan allows 10,000 requests a month, and each outlet feed page is one request (a long date range can use about 30 per search).
+- **Outlets' articles rarely match.** See below.
+
+## Matching outlets' articles
 
 An outlet's article (title plus its RSS summary) is compared with each Wikipedia event published within 3 days of it, as sets of words weighted by how rare each word is among the events (cosine similarity of TF-IDF-style weights). It's attached to the event if the similarity is at least 0.25.
 
