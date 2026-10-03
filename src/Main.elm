@@ -1,5 +1,6 @@
 module Main exposing (main)
 
+import ArchiveLink
 import Browser
 import Date exposing (Date)
 import Dict
@@ -554,7 +555,7 @@ viewOutletSection zone outletSection =
                 (\article ->
                     li []
                         [ text (formatPublishedAt zone article.publishedAt ++ ": ")
-                        , Html.a [ href article.url, target "_blank", rel "noopener noreferrer" ] [ text article.title ]
+                        , articleLink article
                         ]
                 )
                 outletSection.articles
@@ -666,7 +667,7 @@ viewStory zone { story, relatedReports } =
     in
     article [ class "story" ]
         [ h3 []
-            [ Html.a [ href story.url, target "_blank", rel "noopener noreferrer" ] [ text story.title ] ]
+            [ articleLink story ]
         , if List.isEmpty story.topics then
             text ""
 
@@ -706,13 +707,27 @@ viewRelatedReports zone relatedReports =
                         (\report ->
                             li []
                                 [ text (formatPublishedAt zone report.publishedAt ++ ": ")
-                                , Html.a [ href report.url, target "_blank", rel "noopener noreferrer" ] [ text report.title ]
+                                , articleLink report
                                 , text (" (" ++ report.sourceName ++ ")")
                                 ]
                         )
                         relatedReports
                     )
                 ]
+
+
+{-| Opens the article's newest archived copy on archive.ph (see ArchiveLink),
+with the original address shown on hover.
+-}
+articleLink : Story -> Html Msg
+articleLink story =
+    Html.a
+        [ href (ArchiveLink.archived story.url)
+        , Attr.title ("Archived copy of " ++ story.url)
+        , target "_blank"
+        , rel "noopener noreferrer"
+        ]
+        [ text story.title ]
 
 
 {-| e.g. "Fri 2 Oct 2026, 19:40" in the user's time zone, or just

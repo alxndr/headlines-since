@@ -31,7 +31,8 @@
     * [-] ~~Reuters~~ (won't do): no public RSS any more (404); Google News search `site:reuters.com` was the usual workaround, but Google blocks proxies
     * [-] ~~CNN~~ (won't do): RSS abandoned (`rss.cnn.com` feeds last updated 2023/2024)
 
-* [ ] link to articles thru archive.is proxy
+* [x] link to articles thru archive.is proxy (all article links go to `archive.ph/newest/<url>`, with tracking parameters removed)
+    * [ ] only ~1 in 3 sampled articles already had an archived copy, so most clicks land on archive.ph's "No results" page; if that's annoying, consider linking the original too, or only archiving paywalled outlets
 
 * [ ] debate publishing the RFC822-parsing file into a proper Elm package?
 

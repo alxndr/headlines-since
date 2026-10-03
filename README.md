@@ -23,6 +23,8 @@ Outlets' articles can't be ranked against Wikipedia events (they have no Wikiped
 
 The ranked stories appear as soon as Wikipedia has loaded; each outlet's section fills in when that outlet's feed has loaded.
 
+Article links open the newest archived copy on [archive.today](https://archive.ph/) (`https://archive.ph/newest/<article URL>`), so paywalled articles can be read; hovering a link shows the original address. If an article hasn't been archived yet, archive.ph shows a "No results" page with a button to archive it there and then. Tracking parameters (e.g. `utm_source`, the BBC's `at_medium`, DW's `maca`) are removed first, because archived copies are usually of the plain address.
+
 Removed sources:
 - **Google News RSS**: Google answers requests from CORS proxies with a "Sorry..." block page (HTTP 503).
 - **LA Times RSS**: refuses requests from corsproxy.io (HTTP 403), and allorigins.win hangs until it times out.
@@ -111,6 +113,7 @@ GitHub Actions workflow (`.github/workflows/deploy.yml`) runs the Tests workflow
 | `src/OutletMatch.elm` | Matches outlets' articles to Wikipedia events |
 | `src/Rank.elm` | Scores and picks the top stories |
 | `src/Story.elm` | The `Story` type |
+| `src/ArchiveLink.elm` | Turns article links into archive.ph links |
 
 ## Algorithm
 
@@ -138,6 +141,7 @@ Duplicate URLs are only considered once.
 - **The most recent day is thin.** Wikipedia's page for a day fills in as the day goes on (e.g. at 01:39 UTC on 3 October 2026, that day's page had no events yet, 2 October had 14 and 1 October had 22), so the ranked list has little from today. Outlets' articles from today still appear in their sections, unranked.
 - **Long date ranges are partly covered, and slower.** Paged outlets' feeds go back at most 10 pages each (e.g. about 2 weeks for Mother Jones, 3 months for The Nation and The Intercept, 6 months for Common Dreams), loaded one page after another (a month-long range took about 26 seconds for every outlet to load, though the ranked stories appeared in 4), the other outlets only have their latest items (a day to two months), and for ranges starting more than 60 days ago, page views are looked up for only the 50 most-cited topics. Each outlet's section notes when it couldn't reach back to the start date.
 - **Proxy quota.** corsproxy.io's free plan allows 10,000 requests a month, and each outlet feed page is one request: about 25 per search for a range of a week or so, about 47 for a month, and at most 92 (8 paged outlets at 10 pages each, plus 12 other proxied outlets).
+- **Many articles haven't been archived yet.** In a sample of 14 linked articles, 5 already had an archived copy on archive.ph; for the rest, readers land on archive.ph's "No results" page and have to ask it to archive the article (one click, then a short wait).
 - **Outlets' articles rarely match.** See below. Straight-news outlets (e.g. DW, The New York Times, Axios) match more often than opinion and investigative ones, since they report the same events Wikipedia lists.
 
 ## Matching outlets' articles
