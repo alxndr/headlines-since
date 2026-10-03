@@ -79,7 +79,7 @@ npm run format        # elm-format, rewrites files
 npm run format:check  # elm-format, fails if anything needs formatting
 ```
 
-The Tests workflow (`.github/workflows/test.yml`) runs the format check, tests, and a build on every push and pull request.
+The Tests workflow (`.github/workflows/test.yml`) runs the format check, tests, and a build on every push and pull request. The deploy workflow also runs it first, and doesn't deploy unless it passes.
 
 ### Using mise for tool versions
 
@@ -92,7 +92,7 @@ mise exec -- npm run dev
 
 ## Deployment
 
-GitHub Actions workflow (`.github/workflows/deploy.yml`) builds the app with Vite and deploys to GitHub Pages on push to `main`. The build step reads the corsproxy.io key from the `VITE_CORSPROXY_API_KEY` secret. Enable Pages in repo settings (source: GitHub Actions).
+GitHub Actions workflow (`.github/workflows/deploy.yml`) runs the Tests workflow, then builds the app with Vite and deploys to GitHub Pages, on push to `main`. If the format check, tests or build fail, nothing is deployed. The build step reads the corsproxy.io key from the `VITE_CORSPROXY_API_KEY` secret. Enable Pages in repo settings (source: GitHub Actions).
 
 ## Code layout
 
