@@ -1,12 +1,11 @@
 name: Tests
 
+# Pushes to main don't trigger this directly: the deploy workflow runs it
+# (via workflow_call) before building, so the checks run once per push and a
+# failure stops the deploy.
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
-  # Lets the deploy workflow run these checks first, so a failing check
-  # stops the deploy.
   workflow_call:
 
 jobs:

@@ -79,7 +79,7 @@ npm run format        # elm-format, rewrites files
 npm run format:check  # elm-format, fails if anything needs formatting
 ```
 
-The Tests workflow (`.github/workflows/test.yml`) runs the format check, tests, and a build on every push and pull request. The deploy workflow also runs it first, and doesn't deploy unless it passes.
+The Tests workflow (`.github/workflows/test.yml`) runs the format check, tests, and a build. It runs on pull requests, and on pushes to `main` as the first step of the deploy workflow, which doesn't deploy unless it passes.
 
 ### Using mise for tool versions
 
