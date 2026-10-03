@@ -9,16 +9,12 @@
 
 * add more sources (findings from 2026-10-02 research; "proxy" = no CORS headers, so it needs a CORS proxy)
     * [x] Mother Jones: `https://www.motherjones.com/feed/`, 10 items/page; WordPress paging (`?paged=N`) reaches back ~1 year (paged=200 → Sept 2025); proxy
-    * [ ] Jacobin
-    * [ ] Al Jazeera
     * [x] Vox: `https://www.vox.com/rss/index.xml`, 10 items (~2 days); no paging; proxy; Atom
     * [x] The Nation: `https://www.thenation.com/feed/?post_type=article`, 50 items (~1 week) per page; `&paged=N` works (paged=10 → July 2026); proxy
     * [x] [Common Dreams](https://www.commondreams.org/): `https://www.commondreams.org/feeds/feed.rss`, 30 items (~2.5 weeks); `?page=N` works; proxy
-    * [ ] MS NOW: `https://www.ms.now/feed`, 10 items (same day only); paging params ignored; proxy
     * [x] NYT RSS: `https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml`, 25 items (~1 day); **no proxy needed** (CORS `*`)
     * [ ] NYT APIs (free key; CORS `*`; 5 req/min, 500/day per key, shared by every visitor): Article Search can filter by date and by front page (`print_page`), a strong "importance" signal; Archive API returns a whole month (large)
     * [x] The Intercept (paged), ProPublica, Democracy Now!, Truthout, Guardian US RSS, NPR, Axios, Politico, Jacobin (Atom), The Atlantic (Atom): added 2026-10-02
-    * [ ] Al Jazeera: `https://www.aljazeera.com/xml/rss/all.xml`, ~25 items (~1 day); mostly no summaries, so its articles would rarely match; proxy
     * [ ] American Prospect: `https://prospect.org/api/rss/all.rss` answered 429 (Too Many Requests) when probed; untested
     * [ ] In These Times: `https://inthesetimes.com/rss`, 20 items (~3.5 weeks); no summaries; paging ignored; proxy
     * [ ] Guardian Content API (free key; CORS `*`; reportedly 4000/day non-commercial): date-range search, but no importance ranking; the old public `test` key no longer works
@@ -46,3 +42,8 @@
     * [ ] Elm's HTTP requests can't set fetch's `cache: 'no-store'` like the old JS did; check whether browser/proxy caching ever serves stale feeds
     * [x] feeds are fetched one after another; fetch them in parallel if loading feels slow (outlets now load in parallel with each other and with Wikipedia; each outlet's pages still load one after another)
     * [ ] `Time.here` is a fixed UTC offset, so displayed times and the start-date cutoff can be an hour off around daylight-saving changes (fix: `justinmimbs/timezone-data`)
+
+* ops
+    * warnings on CI
+        * [x] (switched to `ubuntu-26.04` explicitly, ahead of the migration) `"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748"`
+        * [x] (upgraded to checkout@v7, setup-node@v7, upload-pages-artifact@v5 and deploy-pages@v5, which run on Node 24; the CI build itself also moved from Node 20, end-of-life since April 2026, to Node 24) `Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/`
